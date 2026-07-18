@@ -73,13 +73,25 @@
   input[type=file]{font-size:11px; color:var(--ink-3); width:100%; margin-top:8px}
   input[type=file]::file-selector-button{padding:6px 10px; margin-right:8px; font-family:inherit; font-size:11.5px;
     background:var(--panel-2); color:var(--ink-2); border:1px solid var(--line); border-radius:7px; cursor:pointer}
-  .bars{margin-top:10px; display:none}
+  .verdict{border-radius:12px; padding:13px 15px; margin-bottom:12px; display:none}
+  .verdict.on{display:block}
+  .verdict .gr{font-size:22px; font-weight:800; letter-spacing:-.02em; line-height:1.25}
+  .verdict .ln{font-size:12.5px; margin-top:5px; opacity:.92}
+  .verdict .mt{font-size:11.5px; margin-top:8px; opacity:.72; font-variant-numeric:tabular-nums}
+  .bars{margin-top:12px; display:none}
   .bars.on{display:block}
-  .bar{display:flex; align-items:center; gap:8px; margin:5px 0; font-size:11.5px}
-  .bar .nm{width:64px; color:var(--ink-2); flex:none}
-  .bar .tr{flex:1; height:6px; background:var(--panel-2); border-radius:3px; overflow:hidden}
-  .bar .fl{height:100%; border-radius:3px}
-  .bar .pc{width:32px; text-align:right; color:var(--ink-3); font-variant-numeric:tabular-nums}
+  .bar{display:flex; align-items:center; gap:9px; margin:7px 0; font-size:12px}
+  .bar .nm{width:66px; color:var(--ink-2); flex:none}
+  .bar .tr{display:block; flex:1; height:7px; background:#0E1622; border-radius:4px; overflow:hidden}
+  .bar .fl{display:block; height:100%; border-radius:4px; transition:width .18s}
+  .bar .pc{width:56px; text-align:right; color:var(--ink-3); flex:none}
+  .presets{display:grid; grid-template-columns:1fr 1fr; gap:6px}
+  .presets button{width:100%; font-size:12px; padding:8px 6px}
+  .adv{display:none; margin-top:10px; padding-top:10px; border-top:1px solid var(--line)}
+  .adv.on{display:block}
+  .link{background:none; border:none; color:var(--ink-3); font-size:11.5px; padding:6px 0;
+    cursor:pointer; text-decoration:underline; text-underline-offset:3px}
+  .link:hover{color:var(--ink-2)}
   .perf{font-size:11px; color:var(--ink-3); margin-top:8px; font-variant-numeric:tabular-nums}
 </style>
 
@@ -127,30 +139,29 @@
           <button data-mode="lamp">가로등 추가</button>
           <button data-mode="report">위험 신고</button>
         </div>
-        <div class="stats">
-          <div class="stat safe"><div class="k">안전 경로 점수</div><div class="v" id="s-safe">–</div></div>
-          <div class="stat fast"><div class="k">최단 경로 점수</div><div class="v" id="s-fast">–</div></div>
-          <div class="stat"><div class="k">안전 경로</div><div class="v sm" id="s-dist">–</div></div>
-          <div class="stat"><div class="k">최단 경로</div><div class="v sm" id="s-dist2">–</div></div>
-        </div>
-        <div class="row">
-          <label>안전 민감도</label>
-          <input type="range" id="alpha" min="0" max="6" step="0.2" value="3">
-          <span class="num" id="alpha-v">3.0</span>
-        </div>
-        <div class="bars on" id="bars">
-          <div class="note" style="margin:6px 0 4px"><b>경로의 CPTED 지표 평균</b></div>
-        </div>
+        <div class="verdict" id="verdict"></div>
+        <div class="bars" id="bars"></div>
       </div>
 
       <div class="card">
-        <h2>3. 지표 비중 (CPTED)</h2>
-        <div class="row"><label>조도</label><input type="range" id="w0" min="0" max="1" step="0.05" value="0.30"><span class="num" id="w0-v">.30</span></div>
-        <div class="row"><label>자연적 감시</label><input type="range" id="w1" min="0" max="1" step="0.05" value="0.25"><span class="num" id="w1-v">.25</span></div>
-        <div class="row"><label>활용성</label><input type="range" id="w2" min="0" max="1" step="0.05" value="0.15"><span class="num" id="w2-v">.15</span></div>
-        <div class="row"><label>구조</label><input type="range" id="w3" min="0" max="1" step="0.05" value="0.20"><span class="num" id="w3-v">.20</span></div>
-        <div class="row"><label>대피소</label><input type="range" id="w4" min="0" max="1" step="0.05" value="0.10"><span class="num" id="w4-v">.10</span></div>
-        <div class="note">가로등이 없는 동네여도 나머지 지표로 점수가 나옵니다. 비중을 바꾸면 즉시 다시 계산됩니다.</div>
+        <h2>3. 누가 걷나요?</h2>
+        <div class="presets" id="presets">
+          <button data-p="0" data-on="1">기본</button>
+          <button data-p="1">혼자 늦은 밤</button>
+          <button data-p="2">아이와 함께</button>
+          <button data-p="3">인적 드문 길 피하기</button>
+        </div>
+        <div class="note">상황에 따라 무엇을 더 중요하게 볼지 달라집니다. 골라 보면 경로가 바뀝니다.</div>
+        <button class="link" id="adv-toggle">전문가 설정 열기</button>
+        <div class="adv" id="adv">
+          <div class="row"><label>돌아가기 감수</label><input type="range" id="alpha" min="0" max="6" step="0.2" value="3"><span class="num" id="alpha-v">3.0</span></div>
+          <div class="row"><label>조도</label><input type="range" id="w0" min="0" max="1" step="0.05" value="0.30"><span class="num" id="w0-v">.30</span></div>
+          <div class="row"><label>자연적 감시</label><input type="range" id="w1" min="0" max="1" step="0.05" value="0.25"><span class="num" id="w1-v">.25</span></div>
+          <div class="row"><label>활용성</label><input type="range" id="w2" min="0" max="1" step="0.05" value="0.15"><span class="num" id="w2-v">.15</span></div>
+          <div class="row"><label>구조</label><input type="range" id="w3" min="0" max="1" step="0.05" value="0.20"><span class="num" id="w3-v">.20</span></div>
+          <div class="row"><label>대피소</label><input type="range" id="w4" min="0" max="1" step="0.05" value="0.10"><span class="num" id="w4-v">.10</span></div>
+          <div class="note">CPTED 5원리에 대응합니다. 발표·보고서용 지표입니다.</div>
+        </div>
       </div>
 
       <div class="card">
@@ -435,6 +446,7 @@ function recombine() {
     for (let k = 0; k < F; k++) s += w[k] * ind[o + k];
     score[i] = clamp01(s / sum - pen[i]);
   }
+  buildRanking();
 }
 
 /* ── 우선순위 큐 ── */
@@ -538,39 +550,91 @@ function render() {
   routes();
 }
 
-const NAMES = ["조도", "감시", "활용성", "구조", "대피소"];
+/* ── 사람이 읽는 말로 바꾸기 ─────────────────────────────
+   점수(0~1)는 계산용이고, 화면에는 말로 보여줍니다.          */
+const NAMES  = ["가로등", "주변 시선", "밤에 사람", "길 모양", "대피할 곳"];
 const COLORS = ["#FFC24B", "#7FB3E8", "#3DDC97", "#AFA9EC", "#F0997B"];
+const WORDS = [
+  ["거의 없음", "드문드문", "보통", "밝은 편"],
+  ["거의 없음", "적음", "보통", "많음"],
+  ["드묾", "조금 있음", "꽤 있음", "많음"],
+  ["좁은 골목", "보통 길", "넓은 길", "큰길"],
+  ["멀어요", "조금 멀어요", "가까워요", "바로 옆"]
+];
+const word = (k, v) => WORDS[k][v < .2 ? 0 : v < .45 ? 1 : v < .7 ? 2 : 3];
+
+/* 등급: 이 동네 도로들과 견줘서 몇 등인지 (백분위) */
+let sorted = null;
+function buildRanking() {
+  const step = Math.max(1, (D.m / 2000) | 0), a = [];
+  for (let i = 0; i < D.m; i += step) a.push(D.score[i]);
+  a.sort((x, y) => x - y);
+  sorted = a;
+}
+function percentile(v) {
+  if (!sorted || !sorted.length) return 50;
+  let lo = 0, hi = sorted.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (sorted[mid] < v) lo = mid + 1; else hi = mid; }
+  return Math.round(lo / sorted.length * 100);
+}
+const GRADES = [
+  { min: 75, t: "밤에 걷기 좋아요",   bg: "#12301F", fg: "#7CE0AE" },
+  { min: 50, t: "무난해요",           bg: "#132436", fg: "#8FC4F5" },
+  { min: 28, t: "조금 조심하세요",    bg: "#2E2413", fg: "#F2C97A" },
+  { min: 0,  t: "혼자는 피하고 싶은 길", bg: "#33191A", fg: "#F79B9B" }
+];
+
+/* 왜 그런지 한 줄로: 가장 좋은 것과 가장 아쉬운 것을 짚어줍니다 */
+function reason(f) {
+  let hi = 0, lo = 0;
+  for (let k = 1; k < F; k++) { if (f[k] > f[hi]) hi = k; if (f[k] < f[lo]) lo = k; }
+  if (hi === lo || f[hi] - f[lo] < 0.08)
+    return f[hi] > .55 ? "전반적으로 괜찮은 길이에요." : "특별히 나쁘진 않지만 눈에 띄게 좋지도 않아요.";
+  const good = ["가로등이 밝고", "주변에 창문이 많고", "밤에도 사람이 다니고", "길이 넓고", "대피할 곳이 가깝고"][hi];
+  const bad  = ["가로등이 거의 없어요", "주변에 인기척이 적어요", "밤엔 사람이 드물어요", "길이 좁아요", "대피할 곳이 멀어요"][lo];
+  return f[hi] < .25 ? bad.replace("어요", "어요.") : good + ", " + bad;
+}
+
 function routes() {
   R.route.clearLayers();
-  const set = (a, b, c, d) => { $("s-safe").textContent = a; $("s-fast").textContent = b;
-    $("s-dist").textContent = c; $("s-dist2").textContent = d; };
-  if (!D || start < 0 || goal < 0) { set("–", "–", "–", "–"); return; }
+  const V = $("verdict"), B = $("bars");
+  if (!D || start < 0 || goal < 0) { V.className = "verdict"; B.className = "bars"; return; }
 
   const t = performance.now();
   const pF = findPath(start, goal, 0);
   const pS = findPath(start, goal, +$("alpha").value);
   const ms = performance.now() - t;
-  if (!pF || !pS) { set("–", "–", "–", "–"); say("두 지점이 길로 이어져 있지 않습니다.", "err"); return; }
+  if (!pF || !pS) { V.className = "verdict"; B.className = "bars"; say("두 지점이 길로 이어져 있지 않습니다.", "err"); return; }
 
   R.route.addLayer(L.polyline(ll(pF), { color: "#FF7A6B", weight: 3, opacity: .85, dashArray: "6 6", interactive: false }));
   R.route.addLayer(L.polyline(ll(pS), { color: "#3DDC97", weight: 5, opacity: .95, interactive: false }));
 
   const iS = info(pS), iF = info(pF);
-  set(iS.score + "점", iF.score + "점",
-      iS.meters + "m · " + iS.minutes + "분", iF.meters + "m · " + iF.minutes + "분");
+  const pct = percentile(iS.score / 100);
+  const g = GRADES.find(x => pct >= x.min);
 
-  let html = '<div class="note" style="margin:6px 0 4px"><b>안전 경로의 CPTED 지표 평균</b></div>';
+  const dm = iS.meters - iF.meters, dt = iS.minutes - iF.minutes;
+  const compare = dm > 20
+    ? (dt > 0 ? dt + "분" : Math.round(dm) + "m") + " 더 걸어서 어두운 구간을 " + Math.max(1, iF.dark - iS.dark) + "곳 피했어요."
+    : "가장 빠른 길이 마침 가장 안전한 길이에요.";
+
+  V.className = "verdict on";
+  V.style.background = g.bg; V.style.color = g.fg;
+  V.innerHTML = '<div class="gr">' + g.t + "</div>" +
+    '<div class="ln">' + reason(iS.f) + "</div>" +
+    '<div class="ln" style="margin-top:6px">' + compare + "</div>" +
+    '<div class="mt">' + iS.meters + "m · 걸어서 " + iS.minutes + "분 · 이 동네 길 중 상위 " + (100 - pct) + "%</div>";
+
+  let html = '<div class="note" style="margin:0 0 6px"><b>이 길은 왜 그런가요?</b></div>';
   for (let k = 0; k < F; k++) {
-    const p = Math.round(iS.f[k] * 100);
-    html += '<div class="bar"><span class="nm">' + NAMES[k] + '</span><span class="tr">' +
-            '<span class="fl" style="width:' + p + '%;background:' + COLORS[k] + '"></span></span>' +
-            '<span class="pc">' + p + '</span></div>';
+    const v = iS.f[k], p = Math.round(v * 100);
+    html += '<div class="bar"><span class="nm">' + NAMES[k] + '</span>' +
+            '<span class="tr"><span class="fl" style="width:' + Math.max(2, p) + '%;background:' + COLORS[k] + '"></span></span>' +
+            '<span class="pc">' + word(k, v) + "</span></div>";
   }
-  $("bars").innerHTML = html;
+  B.className = "bars on"; B.innerHTML = html;
 
-  const ex = iS.meters - iF.meters;
-  say((ex > 5 ? ex + "m 더 걸어 안전 점수를 " + (iS.score - iF.score) + "점 올렸습니다. 어두운 구간 " + iS.dark + "곳."
-              : "최단 경로가 이미 가장 안전한 길입니다.") + " (경로 계산 " + ms.toFixed(1) + "ms)");
+  say(compare + " (경로 계산 " + ms.toFixed(1) + "ms)");
 }
 
 /* ── 가장 가까운 것 찾기: 격자 덕분에 즉시 ── */
@@ -691,6 +755,27 @@ $("alpha").addEventListener("input", () => { $("alpha-v").textContent = (+$("alp
   $("w" + k + "-v").textContent = (+$("w" + k).value).toFixed(2).slice(1);
   if (D) { recombine(); render(); }        // 지표 재계산 없이 가중합만
 }));
+
+/* 상황별 기본값 — 슬라이더 다섯 개 대신 버튼 하나로 */
+const PRESETS = [
+  { w: [.30, .25, .15, .20, .10], a: 3 },   // 기본
+  { w: [.25, .30, .15, .10, .20], a: 4 },   // 혼자 늦은 밤 — 시선과 대피소 중시
+  { w: [.35, .25, .10, .25, .05], a: 3 },   // 아이와 함께 — 밝고 넓은 길
+  { w: [.15, .25, .35, .10, .15], a: 4 }    // 인적 드문 길 피하기
+];
+$("presets").addEventListener("click", ev => {
+  const b = ev.target.closest("button"); if (!b) return;
+  [...document.querySelectorAll("#presets button")].forEach(x => x.dataset.on = x === b ? "1" : "0");
+  const P = PRESETS[+b.dataset.p];
+  P.w.forEach((v, k) => { $("w" + k).value = v; $("w" + k + "-v").textContent = v.toFixed(2).slice(1); });
+  $("alpha").value = P.a; $("alpha-v").textContent = P.a.toFixed(1);
+  if (D) { recombine(); render(); }
+});
+$("adv-toggle").addEventListener("click", () => {
+  const a = $("adv"), on = a.className !== "adv on";
+  a.className = on ? "adv on" : "adv";
+  $("adv-toggle").textContent = on ? "전문가 설정 닫기" : "전문가 설정 열기";
+});
 $("load").addEventListener("click", loadArea);
 
 /* ── AI 신고 ── */

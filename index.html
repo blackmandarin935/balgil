@@ -1,0 +1,475 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>밝길 — 밤길 안전 경로 안내</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root{
+    --night:#0D141F; --panel:#141D2B; --panel-2:#1B2637;
+    --line:#26344A; --line-2:#33455F;
+    --ink:#E9EFF7; --ink-2:#93A5BD; --ink-3:#5E7290;
+    --lamp:#FFC24B; --safe:#3DDC97; --fast:#FF7A6B; --info:#6FA8FF;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--night); color:var(--ink);
+    font-family:Pretendard,-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    font-size:14px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1120px; margin:0 auto; padding:24px 20px 56px}
+
+  header{display:flex; align-items:baseline; gap:12px; margin-bottom:4px}
+  .logo{font-size:30px; font-weight:800; letter-spacing:-.03em}
+  .logo b{color:var(--lamp)}
+  .tag{color:var(--ink-2); font-size:13px}
+  .sub{color:var(--ink-3); font-size:12.5px; margin-bottom:20px}
+
+  .grid{display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:18px}
+  @media (max-width:860px){ .grid{grid-template-columns:1fr} }
+
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px}
+  .card h2{margin:0 0 12px; font-size:13px; font-weight:700; letter-spacing:.02em; color:var(--ink-2)}
+
+  #map{width:100%; height:auto; display:block; border-radius:10px; background:#080D15; cursor:crosshair}
+
+  .modes{display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap}
+  .modes button{
+    flex:1; min-width:88px; padding:8px 6px; font-size:12.5px; font-weight:600;
+    background:var(--panel-2); color:var(--ink-2); border:1px solid var(--line);
+    border-radius:8px; cursor:pointer; font-family:inherit; transition:.15s;
+  }
+  .modes button:hover{border-color:var(--line-2); color:var(--ink)}
+  .modes button[data-on="1"]{background:var(--info); border-color:var(--info); color:#08111F}
+
+  .hint{font-size:12px; color:var(--ink-3); margin-top:10px; min-height:34px}
+
+  .stats{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px}
+  .stat{background:var(--panel-2); border-radius:10px; padding:10px 12px}
+  .stat .k{font-size:11.5px; color:var(--ink-3)}
+  .stat .v{font-size:21px; font-weight:700; letter-spacing:-.02em; margin-top:1px}
+  .stat.safe .v{color:var(--safe)} .stat.fast .v{color:var(--fast)}
+
+  .row{display:flex; align-items:center; gap:10px; margin:10px 0}
+  .row label{font-size:12.5px; color:var(--ink-2); width:96px; flex:none}
+  input[type=range]{flex:1; accent-color:var(--info); background:transparent}
+  .row .num{width:38px; text-align:right; font-size:12.5px; font-weight:700; font-variant-numeric:tabular-nums}
+
+  .legend{display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--ink-2); margin-top:10px}
+  .legend i{display:inline-block; width:14px; height:3px; border-radius:2px; margin-right:5px; vertical-align:middle}
+
+  textarea{
+    width:100%; min-height:62px; resize:vertical; padding:10px 12px; font-family:inherit; font-size:13px;
+    background:var(--panel-2); color:var(--ink); border:1px solid var(--line); border-radius:9px;
+  }
+  textarea:focus{outline:none; border-color:var(--info)}
+  .btn{
+    width:100%; margin-top:8px; padding:10px; font-size:13px; font-weight:700; font-family:inherit;
+    background:var(--lamp); color:#241701; border:none; border-radius:9px; cursor:pointer;
+  }
+  .btn:disabled{opacity:.45; cursor:default}
+  .btn.ghost{background:transparent; color:var(--ink-2); border:1px solid var(--line)}
+
+  .aiout{margin-top:10px; padding:11px 13px; border-radius:9px; background:var(--panel-2); border-left:3px solid var(--lamp); font-size:12.5px; display:none}
+  .aiout .t{font-weight:700; color:var(--lamp); margin-bottom:3px}
+
+  .formula{
+    margin-top:18px; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px;
+  }
+  .formula h2{margin:0 0 10px; font-size:13px; font-weight:700; color:var(--ink-2)}
+  code{
+    display:block; background:#080D15; border-radius:9px; padding:12px 14px; margin:8px 0;
+    font-family:ui-monospace,"SFMono-Regular",Menlo,monospace; font-size:12.5px; color:#B7E4FF; overflow-x:auto;
+  }
+  .formula p{margin:8px 0; font-size:13px; color:var(--ink-2)}
+  .formula strong{color:var(--ink)}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="logo">밝<b>길</b></div>
+    <div class="tag">가장 빠른 길 말고, 가장 밝은 길</div>
+  </header>
+  <div class="sub">지도를 클릭해 출발지와 도착지를 정하세요. 가로등을 껐다 켜 보면 경로가 어떻게 달라지는지 볼 수 있습니다.</div>
+
+  <div class="grid">
+    <div class="card">
+      <svg id="map" viewBox="0 0 484 484"></svg>
+      <div class="legend">
+        <span><i style="background:var(--safe)"></i>안전 경로</span>
+        <span><i style="background:var(--fast);opacity:.9"></i>최단 경로</span>
+        <span><i style="background:var(--lamp);border-radius:50%;width:8px;height:8px"></i>가로등</span>
+        <span><i style="background:var(--info);border-radius:50%;width:8px;height:8px"></i>CCTV</span>
+        <span><i style="background:#FF4D4D;border-radius:50%;width:8px;height:8px"></i>위험 신고</span>
+      </div>
+      <div class="hint" id="hint">출발지로 쓸 지점을 클릭하세요.</div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>모드</h2>
+        <div class="modes" id="modes">
+          <button data-mode="route" data-on="1">경로 지정</button>
+          <button data-mode="lamp">가로등 on/off</button>
+          <button data-mode="report">위험 신고</button>
+        </div>
+
+        <div class="stats">
+          <div class="stat safe"><div class="k">안전 경로 점수</div><div class="v" id="s-safe">–</div></div>
+          <div class="stat fast"><div class="k">최단 경로 점수</div><div class="v" id="s-fast">–</div></div>
+          <div class="stat"><div class="k">안전 경로 거리 · 시간</div><div class="v" id="s-dist" style="font-size:15px">–</div></div>
+          <div class="stat"><div class="k">최단 경로 거리 · 시간</div><div class="v" id="s-dist2" style="font-size:15px">–</div></div>
+        </div>
+
+        <div class="row">
+          <label>안전 민감도</label>
+          <input type="range" id="alpha" min="0" max="6" step="0.2" value="3">
+          <span class="num" id="alpha-v">3.0</span>
+        </div>
+        <div class="row">
+          <label>조도 비중</label>
+          <input type="range" id="wl" min="0" max="1" step="0.05" value="0.62">
+          <span class="num" id="wl-v">0.62</span>
+        </div>
+        <div class="row">
+          <label>CCTV 비중</label>
+          <input type="range" id="wc" min="0" max="1" step="0.05" value="0.28">
+          <span class="num" id="wc-v">0.28</span>
+        </div>
+        <button class="btn ghost" id="reset">처음 상태로</button>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <h2>AI 신고 접수</h2>
+        <div style="font-size:12px;color:var(--ink-3);margin-bottom:8px">
+          신고 모드에서 길을 하나 고른 뒤, 말하듯이 적어 보세요.
+        </div>
+        <textarea id="ai-in" placeholder="예) 여기 가로등이 며칠째 깜빡거려요. 밤에 앞이 거의 안 보여요."></textarea>
+        <button class="btn" id="ai-go">AI로 분석하고 등록</button>
+        <div class="aiout" id="ai-out"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="formula">
+    <h2>교과 연계 — 이 앱이 실제로 쓰는 수학</h2>
+    <p><strong>1. 조도의 거리 역제곱 법칙 (이차함수)</strong><br>
+      가로등에서 멀어질수록 밝기는 거리의 제곱에 반비례해 줄어듭니다. 여러 가로등의 빛은 더해집니다.</p>
+    <code>E(p) = Σ  k / (d² + r₀²)     · d = 가로등까지 거리, r₀ = 보정 상수</code>
+    <p><strong>2. 두 점 사이 거리 (제곱근과 실수)</strong></p>
+    <code>d = √( (x₂−x₁)² + (y₂−y₁)² )   → Math.sqrt(dx*dx + dy*dy)</code>
+    <p><strong>3. 안전 점수와 경로 비용 (일차식·최적화)</strong><br>
+      각 구간의 안전 점수를 0~1로 매기고, 어두울수록 "멀게 느껴지는" 가상 거리를 씌운 뒤 최단 경로를 찾습니다.</p>
+    <code>score = w₁·조도 + w₂·CCTV + 0.10 − 0.30·신고수
+비용  = 실제거리 × ( 1 + α·(1 − score) )</code>
+    <p>α(안전 민감도)를 0으로 두면 최단 경로와 같아지고, 크게 올릴수록 돌아가더라도 밝은 길을 고릅니다. 슬라이더를 움직이며 확인해 보세요.</p>
+  </div>
+</div>
+
+<script>
+const N = 9, SP = 52, M = 34;
+const PX_TO_M = 100 / SP;
+const WALK_M_PER_MIN = 67;
+
+const nodes = [];
+for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
+  nodes.push({ id: r * N + c, r, c, x: M + c * SP, y: M + r * SP });
+
+const inPark = n => n.r >= 3 && n.r <= 5 && n.c >= 3 && n.c <= 5;
+
+const edges = [];
+const adj = Array.from({ length: N * N }, () => []);
+function addEdge(a, b) {
+  const na = nodes[a], nb = nodes[b];
+  if (inPark(na) && inPark(nb)) return;
+  const len = Math.sqrt((na.x - nb.x) ** 2 + (na.y - nb.y) ** 2);
+  const e = { a, b, len, reports: [] };
+  const i = edges.push(e) - 1;
+  adj[a].push({ to: b, e: i });
+  adj[b].push({ to: a, e: i });
+}
+for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+  const id = r * N + c;
+  if (c < N - 1) addEdge(id, id + 1);
+  if (r < N - 1) addEdge(id, id + N);
+}
+
+const LAMP_SEED = [
+  [0,0],[0,2],[0,4],[0,6],[0,8],
+  [1,0],[1,4],[1,8],
+  [2,0],[2,2],[2,4],[2,6],[2,8],
+  [3,0],[3,8],
+  [4,0],[4,2],[4,6],[4,8],
+  [5,0],[5,8],
+  [6,0],[6,4],[6,8],
+  [7,2],[7,6],
+  [8,0],[8,2],[8,4],[8,6],[8,8]
+];
+const CCTV_SEED = [[0,4],[2,2],[2,6],[4,0],[4,8],[6,4],[8,2],[8,6]];
+
+let lamps, cctvs, start, goal, mode = 'route', selEdge = -1;
+
+function reset() {
+  lamps = LAMP_SEED.map(([r, c]) => ({ id: r * N + c, on: true }));
+  cctvs = CCTV_SEED.map(([r, c]) => r * N + c);
+  edges.forEach(e => e.reports = []);
+  start = 8 * N + 1; goal = 0 * N + 7;
+  selEdge = -1;
+  draw();
+}
+
+function illum(x, y) {
+  let E = 0;
+  for (const L of lamps) {
+    if (!L.on) continue;
+    const n = nodes[L.id];
+    const d2 = (n.x - x) ** 2 + (n.y - y) ** 2;
+    E += 2600 / (d2 + 225);
+  }
+  return E;
+}
+const clamp01 = v => Math.max(0, Math.min(1, v));
+
+function cctvCover(x, y) {
+  let best = 0;
+  for (const id of cctvs) {
+    const n = nodes[id];
+    const d = Math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2);
+    best = Math.max(best, clamp01((150 - d) / 90));
+  }
+  return best;
+}
+
+function edgeScore(e) {
+  const A = nodes[e.a], B = nodes[e.b];
+  let light = 0, cc = 0;
+  const S = 5;
+  for (let i = 0; i <= S; i++) {
+    const t = i / S, x = A.x + (B.x - A.x) * t, y = A.y + (B.y - A.y) * t;
+    light += clamp01(illum(x, y) / 4.0);
+    cc += cctvCover(x, y);
+  }
+  light /= (S + 1); cc /= (S + 1);
+  const wl = +document.getElementById('wl').value;
+  const wc = +document.getElementById('wc').value;
+  const pen = e.reports.reduce((s, r) => s + 0.10 * r.level, 0);
+  return { score: clamp01(wl * light + wc * cc + 0.10 - pen), light, cc };
+}
+
+function dijkstra(src, dst, alpha) {
+  const dist = new Array(N * N).fill(Infinity), prev = new Array(N * N).fill(-1);
+  const used = new Array(N * N).fill(false);
+  dist[src] = 0;
+  for (let k = 0; k < N * N; k++) {
+    let u = -1, bd = Infinity;
+    for (let i = 0; i < N * N; i++) if (!used[i] && dist[i] < bd) { bd = dist[i]; u = i; }
+    if (u < 0) break;
+    used[u] = true;
+    for (const { to, e } of adj[u]) {
+      const E = edges[e];
+      const cost = E.len * (1 + alpha * (1 - edgeScore(E).score));
+      if (dist[u] + cost < dist[to]) { dist[to] = dist[u] + cost; prev[to] = u; }
+    }
+  }
+  const path = []; let cur = dst;
+  if (prev[cur] === -1 && cur !== src) return null;
+  while (cur !== -1) { path.unshift(cur); cur = prev[cur]; }
+  return path;
+}
+
+function pathInfo(path) {
+  if (!path || path.length < 2) return null;
+  let len = 0, sc = 0, dark = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    const ei = adj[path[i]].find(x => x.to === path[i + 1]).e;
+    const E = edges[ei], s = edgeScore(E).score;
+    len += E.len; sc += s;
+    if (s < 0.35) dark++;
+  }
+  const meters = len * PX_TO_M;
+  return {
+    meters: Math.round(meters),
+    minutes: Math.max(1, Math.round(meters / WALK_M_PER_MIN)),
+    score: Math.round((sc / (path.length - 1)) * 100),
+    dark
+  };
+}
+
+function pathD(path) {
+  return path.map((id, i) => (i ? 'L' : 'M') + nodes[id].x + ' ' + nodes[id].y).join(' ');
+}
+
+function draw() {
+  const svg = document.getElementById('map');
+  let h = '';
+
+  h += '<defs><radialGradient id="glow"><stop offset="0%" stop-color="#FFC24B" stop-opacity=".38"/>' +
+       '<stop offset="55%" stop-color="#FFC24B" stop-opacity=".10"/>' +
+       '<stop offset="100%" stop-color="#FFC24B" stop-opacity="0"/></radialGradient></defs>';
+
+  h += '<rect x="' + (M + 3 * SP) + '" y="' + (M + 3 * SP) + '" width="' + (2 * SP) + '" height="' + (2 * SP) +
+       '" rx="10" fill="#111C17" stroke="#1E3327"/>';
+  h += '<text x="' + (M + 4 * SP) + '" y="' + (M + 4 * SP + 4) + '" fill="#2E4A38" font-size="11" text-anchor="middle">근린공원</text>';
+
+  for (const L of lamps) if (L.on) {
+    const n = nodes[L.id];
+    h += '<circle cx="' + n.x + '" cy="' + n.y + '" r="66" fill="url(#glow)"/>';
+  }
+
+  edges.forEach((e, i) => {
+    const A = nodes[e.a], B = nodes[e.b];
+    const s = edgeScore(e).score;
+    const g = Math.round(34 + s * 74), b = Math.round(48 + s * 70);
+    const col = 'rgb(' + Math.round(30 + s * 58) + ',' + g + ',' + b + ')';
+    h += '<line x1="' + A.x + '" y1="' + A.y + '" x2="' + B.x + '" y2="' + B.y +
+         '" stroke="' + (i === selEdge ? '#6FA8FF' : col) + '" stroke-width="' + (i === selEdge ? 7 : 5) +
+         '" stroke-linecap="round"/>';
+    h += '<line class="hit" data-e="' + i + '" x1="' + A.x + '" y1="' + A.y + '" x2="' + B.x + '" y2="' + B.y +
+         '" stroke="transparent" stroke-width="14" stroke-linecap="round" style="cursor:pointer"/>';
+  });
+
+  const alpha = +document.getElementById('alpha').value;
+  const pFast = dijkstra(start, goal, 0);
+  const pSafe = dijkstra(start, goal, alpha);
+
+  if (pFast) h += '<path d="' + pathD(pFast) + '" fill="none" stroke="#FF7A6B" stroke-width="3" stroke-dasharray="6 5" stroke-linecap="round" opacity=".85"/>';
+  if (pSafe) h += '<path d="' + pathD(pSafe) + '" fill="none" stroke="#3DDC97" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>';
+
+  for (const id of cctvs) {
+    const n = nodes[id];
+    h += '<rect x="' + (n.x - 4.5) + '" y="' + (n.y - 4.5) + '" width="9" height="9" rx="2" fill="#6FA8FF" opacity=".9"/>';
+  }
+  for (const L of lamps) {
+    const n = nodes[L.id];
+    h += '<circle cx="' + n.x + '" cy="' + n.y + '" r="4.5" fill="' + (L.on ? '#FFC24B' : '#3A4356') + '"/>';
+  }
+  edges.forEach(e => e.reports.forEach(() => {
+    const A = nodes[e.a], B = nodes[e.b];
+    h += '<circle cx="' + ((A.x + B.x) / 2) + '" cy="' + ((A.y + B.y) / 2) + '" r="4" fill="#FF4D4D"/>';
+  }));
+
+  nodes.forEach(n => {
+    h += '<circle class="hit" data-n="' + n.id + '" cx="' + n.x + '" cy="' + n.y + '" r="11" fill="transparent" style="cursor:pointer"/>';
+  });
+
+  const sN = nodes[start], gN = nodes[goal];
+  h += '<circle cx="' + sN.x + '" cy="' + sN.y + '" r="8" fill="#6FA8FF" stroke="#0D141F" stroke-width="2.5"/>';
+  h += '<text x="' + sN.x + '" y="' + (sN.y - 14) + '" fill="#6FA8FF" font-size="11" font-weight="700" text-anchor="middle">출발</text>';
+  h += '<circle cx="' + gN.x + '" cy="' + gN.y + '" r="8" fill="#3DDC97" stroke="#0D141F" stroke-width="2.5"/>';
+  h += '<text x="' + gN.x + '" y="' + (gN.y - 14) + '" fill="#3DDC97" font-size="11" font-weight="700" text-anchor="middle">도착</text>';
+
+  svg.innerHTML = h;
+
+  const iS = pathInfo(pSafe), iF = pathInfo(pFast);
+  document.getElementById('s-safe').textContent = iS ? iS.score + '점' : '–';
+  document.getElementById('s-fast').textContent = iF ? iF.score + '점' : '–';
+  document.getElementById('s-dist').textContent = iS ? iS.meters + 'm · ' + iS.minutes + '분' : '–';
+  document.getElementById('s-dist2').textContent = iF ? iF.meters + 'm · ' + iF.minutes + '분' : '–';
+
+  if (iS && iF) {
+    const extra = iS.meters - iF.meters;
+    document.getElementById('hint').textContent =
+      extra > 0
+        ? extra + 'm(약 ' + Math.max(1, iS.minutes - iF.minutes) + '분) 더 걸어서 안전 점수를 ' + (iS.score - iF.score) + '점 올렸습니다. 어두운 구간 ' + iS.dark + '곳 통과.'
+        : '최단 경로가 이미 가장 밝은 길입니다.';
+  }
+}
+
+let clickStage = 0;
+document.getElementById('map').addEventListener('click', ev => {
+  const t = ev.target;
+  if (!t.classList.contains('hit')) return;
+  if (t.dataset.n !== undefined) {
+    const id = +t.dataset.n;
+    if (mode === 'route') {
+      if (clickStage === 0) { start = id; clickStage = 1; }
+      else { goal = id; clickStage = 0; }
+      draw();
+    } else if (mode === 'lamp') {
+      const L = lamps.find(l => l.id === id);
+      if (L) L.on = !L.on;
+      else lamps.push({ id, on: true });
+      draw();
+    }
+  } else if (t.dataset.e !== undefined && mode === 'report') {
+    selEdge = +t.dataset.e;
+    draw();
+    document.getElementById('hint').textContent = '이 구간을 선택했습니다. 오른쪽에 상황을 적고 AI 분석을 눌러 보세요.';
+  }
+});
+
+document.getElementById('modes').addEventListener('click', ev => {
+  const b = ev.target.closest('button'); if (!b) return;
+  mode = b.dataset.mode;
+  [...document.querySelectorAll('#modes button')].forEach(x => x.dataset.on = x === b ? '1' : '0');
+  clickStage = 0; selEdge = -1;
+  document.getElementById('hint').textContent =
+    mode === 'route' ? '지점을 두 번 클릭하면 출발지와 도착지가 바뀝니다.'
+    : mode === 'lamp' ? '가로등을 클릭해 껐다 켜 보세요. 아무 지점이나 클릭하면 새 가로등이 생깁니다.'
+    : '위험하다고 느낀 길을 클릭해 선택하세요.';
+  draw();
+});
+
+['alpha', 'wl', 'wc'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => {
+    document.getElementById(id + '-v').textContent = (+el.value).toFixed(2).replace(/0$/, id === 'alpha' ? '' : '0');
+    if (id === 'alpha') document.getElementById('alpha-v').textContent = (+el.value).toFixed(1);
+    draw();
+  });
+});
+document.getElementById('reset').addEventListener('click', reset);
+
+// ── AI 신고 분석 ──────────────────────────────────────────────
+// 이 앱은 AI를 직접 부르지 않고 백엔드(/api/analyze)에게 부탁합니다.
+// API 키를 브라우저에 두지 않기 위해서입니다.
+// functions/api/analyze.js 가 배포되기 전(1단계)에는 이 호출이 실패하고,
+// 아래 fallback() 규칙 분석이 대신 동작합니다. 화면은 그대로 작동합니다.
+async function analyze(text) {
+  const res = await fetch('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text })
+  });
+  if (!res.ok) throw new Error('backend unavailable');
+  const r = await res.json();
+  if (r.error) throw new Error(r.error);
+  return r;
+}
+
+// AI 호출이 안 되는 환경(오프라인 시연 등)을 위한 대체 규칙
+function fallback(text) {
+  const t = text.toLowerCase();
+  const hit = (...w) => w.some(x => t.includes(x));
+  let 유형 = '기타', 심각도 = 1;
+  if (hit('가로등', '어둡', '불이', '깜빡', '조명')) { 유형 = '조명'; 심각도 = 2; }
+  else if (hit('안 보', '가려', '나무', '시야', '골목')) { 유형 = '시야'; 심각도 = 2; }
+  else if (hit('턱', '패인', '공사', '미끄')) { 유형 = '노면'; 심각도 = 2; }
+  else if (hit('무섭', '따라', '취객', '수상')) { 유형 = '치안'; 심각도 = 3; }
+  if (hit('며칠', '계속', '전혀', '아예')) 심각도 = Math.min(3, 심각도 + 1);
+  return { 유형, 심각도, 요약: text.slice(0, 15), 조치: '현장 확인 필요' };
+}
+
+document.getElementById('ai-go').addEventListener('click', async () => {
+  const btn = document.getElementById('ai-go');
+  const out = document.getElementById('ai-out');
+  const text = document.getElementById('ai-in').value.trim();
+  if (!text) { alert('신고 내용을 적어 주세요.'); return; }
+  if (selEdge < 0) { alert('먼저 "위험 신고" 모드에서 지도의 길을 하나 클릭하세요.'); return; }
+
+  btn.disabled = true; btn.textContent = '분석 중…';
+  let r, engine;
+  try { r = await analyze(text); engine = 'AI 분석'; }
+  catch (e) { r = fallback(text); engine = '규칙 분석 (AI 서버 없음)'; }
+
+  edges[selEdge].reports.push({ level: r.심각도, type: r.유형 });
+  out.style.display = 'block';
+  out.innerHTML = '<div class="t">' + r.유형 + ' · 심각도 ' + r.심각도 + '단계</div>' +
+                  '<div>' + r.요약 + '</div>' +
+                  '<div style="color:var(--ink-3);margin-top:4px">제안 조치 — ' + (r.조치 || '현장 확인') + '</div>' +
+                  '<div style="color:var(--ink-3);margin-top:6px;font-size:11.5px">엔진 — ' + engine + '</div>';
+  document.getElementById('ai-in').value = '';
+  btn.disabled = false; btn.textContent = 'AI로 분석하고 등록';
+  draw();
+});
+
+reset();
+</script>

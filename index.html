@@ -2,12 +2,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>밝길 — 밤길 안전 경로 안내</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   :root{
     --night:#0D141F; --panel:#141D2B; --panel-2:#1B2637;
     --line:#26344A; --line-2:#33455F;
     --ink:#E9EFF7; --ink-2:#93A5BD; --ink-3:#5E7290;
-    --lamp:#FFC24B; --safe:#3DDC97; --fast:#FF7A6B; --info:#6FA8FF;
+    --lamp:#FFC24B; --safe:#3DDC97; --fast:#FF7A6B; --info:#6FA8FF; --warn:#FF6B6B;
   }
   *{box-sizing:border-box}
   body{
@@ -15,62 +16,85 @@
     font-family:Pretendard,-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
     font-size:14px; line-height:1.6; -webkit-font-smoothing:antialiased;
   }
-  .wrap{max-width:1120px; margin:0 auto; padding:24px 20px 56px}
-
-  header{display:flex; align-items:baseline; gap:12px; margin-bottom:4px}
-  .logo{font-size:30px; font-weight:800; letter-spacing:-.03em}
+  .wrap{max-width:1180px; margin:0 auto; padding:20px 16px 48px}
+  header{display:flex; align-items:baseline; gap:12px}
+  .logo{font-size:28px; font-weight:800; letter-spacing:-.03em}
   .logo b{color:var(--lamp)}
   .tag{color:var(--ink-2); font-size:13px}
-  .sub{color:var(--ink-3); font-size:12.5px; margin-bottom:20px}
+  .sub{color:var(--ink-3); font-size:12.5px; margin:2px 0 16px}
 
-  .grid{display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:18px}
-  @media (max-width:860px){ .grid{grid-template-columns:1fr} }
+  .grid{display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,340px); gap:16px}
+  @media (max-width:900px){ .grid{grid-template-columns:1fr} }
 
-  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px}
-  .card h2{margin:0 0 12px; font-size:13px; font-weight:700; letter-spacing:.02em; color:var(--ink-2)}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px}
+  .card h2{margin:0 0 10px; font-size:12.5px; font-weight:700; letter-spacing:.02em; color:var(--ink-2)}
+  .card + .card{margin-top:12px}
 
-  #map{width:100%; height:auto; display:block; border-radius:10px; background:#080D15; cursor:crosshair}
+  #map{width:100%; height:520px; border-radius:11px; background:#080D15; z-index:1}
+  @media (max-width:900px){ #map{height:400px} }
+  .leaflet-container{background:#080D15; font-family:inherit}
+  .leaflet-control-attribution{background:rgba(13,20,31,.85)!important; color:var(--ink-3)!important; font-size:10px}
+  .leaflet-control-attribution a{color:var(--ink-2)!important}
 
-  .modes{display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap}
-  .modes button{
-    flex:1; min-width:88px; padding:8px 6px; font-size:12.5px; font-weight:600;
-    background:var(--panel-2); color:var(--ink-2); border:1px solid var(--line);
-    border-radius:8px; cursor:pointer; font-family:inherit; transition:.15s;
+  .searchbar{display:flex; gap:6px; margin-bottom:10px}
+  input[type=text]{
+    flex:1; min-width:0; padding:9px 12px; font-family:inherit; font-size:13px;
+    background:var(--panel-2); color:var(--ink); border:1px solid var(--line); border-radius:9px;
   }
-  .modes button:hover{border-color:var(--line-2); color:var(--ink)}
-  .modes button[data-on="1"]{background:var(--info); border-color:var(--info); color:#08111F}
+  input[type=text]:focus{outline:none; border-color:var(--info)}
 
-  .hint{font-size:12px; color:var(--ink-3); margin-top:10px; min-height:34px}
+  button{
+    padding:9px 12px; font-size:12.5px; font-weight:600; font-family:inherit;
+    background:var(--panel-2); color:var(--ink-2); border:1px solid var(--line);
+    border-radius:9px; cursor:pointer; transition:.15s; white-space:nowrap;
+  }
+  button:hover:not(:disabled){border-color:var(--line-2); color:var(--ink)}
+  button:disabled{opacity:.4; cursor:default}
+  button[data-on="1"]{background:var(--info); border-color:var(--info); color:#08111F}
+  .btn-main{background:var(--lamp); border-color:var(--lamp); color:#241701; font-weight:700}
+  .btn-main:hover:not(:disabled){background:#FFD070; border-color:#FFD070; color:#241701}
+  .modes{display:flex; gap:6px; flex-wrap:wrap}
+  .modes button{flex:1; min-width:80px}
 
-  .stats{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px}
-  .stat{background:var(--panel-2); border-radius:10px; padding:10px 12px}
-  .stat .k{font-size:11.5px; color:var(--ink-3)}
-  .stat .v{font-size:21px; font-weight:700; letter-spacing:-.02em; margin-top:1px}
+  .stats{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px}
+  .stat{background:var(--panel-2); border-radius:10px; padding:9px 11px}
+  .stat .k{font-size:11px; color:var(--ink-3)}
+  .stat .v{font-size:19px; font-weight:700; letter-spacing:-.02em}
   .stat.safe .v{color:var(--safe)} .stat.fast .v{color:var(--fast)}
+  .stat .v.sm{font-size:14px}
 
-  .row{display:flex; align-items:center; gap:10px; margin:10px 0}
-  .row label{font-size:12.5px; color:var(--ink-2); width:96px; flex:none}
-  input[type=range]{flex:1; accent-color:var(--info); background:transparent}
-  .row .num{width:38px; text-align:right; font-size:12.5px; font-weight:700; font-variant-numeric:tabular-nums}
+  .row{display:flex; align-items:center; gap:10px; margin:9px 0}
+  .row label{font-size:12.5px; color:var(--ink-2); width:88px; flex:none}
+  input[type=range]{flex:1; accent-color:var(--info); background:transparent; min-width:0}
+  .row .num{width:36px; text-align:right; font-size:12.5px; font-weight:700; font-variant-numeric:tabular-nums}
 
-  .legend{display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--ink-2); margin-top:10px}
-  .legend i{display:inline-block; width:14px; height:3px; border-radius:2px; margin-right:5px; vertical-align:middle}
+  .note{font-size:12px; color:var(--ink-3); margin-top:9px; line-height:1.55}
+  .note b{color:var(--ink-2)}
+  .alert{background:#2A1F14; border-left:3px solid var(--lamp); border-radius:0 8px 8px 0; padding:9px 11px; font-size:12px; color:#E8CFA6; margin-top:10px; display:none}
+  .alert.on{display:block}
 
   textarea{
-    width:100%; min-height:62px; resize:vertical; padding:10px 12px; font-family:inherit; font-size:13px;
+    width:100%; min-height:56px; resize:vertical; padding:9px 11px; font-family:inherit; font-size:13px;
     background:var(--panel-2); color:var(--ink); border:1px solid var(--line); border-radius:9px;
   }
   textarea:focus{outline:none; border-color:var(--info)}
-  .btn{
-    width:100%; margin-top:8px; padding:10px; font-size:13px; font-weight:700; font-family:inherit;
-    background:var(--lamp); color:#241701; border:none; border-radius:9px; cursor:pointer;
+  .aiout{margin-top:9px; padding:10px 12px; border-radius:9px; background:var(--panel-2); border-left:3px solid var(--lamp); font-size:12.5px; display:none}
+  .aiout .t{font-weight:700; color:var(--lamp); margin-bottom:2px}
+
+  .legend{display:flex; gap:12px; flex-wrap:wrap; font-size:11.5px; color:var(--ink-2); margin-top:9px}
+  .legend i{display:inline-block; width:13px; height:3px; border-radius:2px; margin-right:5px; vertical-align:middle}
+  .dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle}
+
+  .status{font-size:12px; color:var(--ink-3); margin-top:9px; min-height:20px}
+  .status.busy{color:var(--lamp)}
+  .status.err{color:var(--warn)}
+
+  .filerow{display:flex; align-items:center; gap:8px; margin-top:8px}
+  input[type=file]{font-size:11.5px; color:var(--ink-3); width:100%}
+  input[type=file]::file-selector-button{
+    padding:6px 10px; margin-right:8px; font-family:inherit; font-size:12px;
+    background:var(--panel-2); color:var(--ink-2); border:1px solid var(--line); border-radius:7px; cursor:pointer;
   }
-  .btn:disabled{opacity:.45; cursor:default}
-  .btn.ghost{background:transparent; color:var(--ink-2); border:1px solid var(--line)}
-
-  .aiout{margin-top:10px; padding:11px 13px; border-radius:9px; background:var(--panel-2); border-left:3px solid var(--lamp); font-size:12.5px; display:none}
-  .aiout .t{font-weight:700; color:var(--lamp); margin-bottom:3px}
-
 </style>
 
 <div class="wrap">
@@ -78,37 +102,53 @@
     <div class="logo">밝<b>길</b></div>
     <div class="tag">가장 빠른 길 말고, 가장 밝은 길</div>
   </header>
-  <div class="sub">지도를 클릭해 출발지와 도착지를 정하세요. 가로등을 껐다 켜 보면 경로가 어떻게 달라지는지 볼 수 있습니다.</div>
+  <div class="sub">실제 도로망과 가로등 위치를 불러와 밤에 걷기 안전한 경로를 찾습니다.</div>
 
   <div class="grid">
-    <div class="card">
-      <svg id="map" viewBox="0 0 484 484"></svg>
-      <div class="legend">
-        <span><i style="background:var(--safe)"></i>안전 경로</span>
-        <span><i style="background:var(--fast);opacity:.9"></i>최단 경로</span>
-        <span><i style="background:var(--lamp);border-radius:50%;width:8px;height:8px"></i>가로등</span>
-        <span><i style="background:var(--info);border-radius:50%;width:8px;height:8px"></i>CCTV</span>
-        <span><i style="background:#FF4D4D;border-radius:50%;width:8px;height:8px"></i>위험 신고</span>
+    <div>
+      <div class="card">
+        <div class="searchbar">
+          <input type="text" id="q" placeholder="동네 이름을 넣어 보세요 — 예: 대전 둔산동, 논산 취암동">
+          <button id="go-search">검색</button>
+          <button id="go-here" title="현재 위치">내 위치</button>
+        </div>
+        <div id="map"></div>
+        <div class="legend">
+          <span><i style="background:var(--safe)"></i>안전 경로</span>
+          <span><i style="background:var(--fast)"></i>최단 경로</span>
+          <span><span class="dot" style="background:var(--lamp)"></span>가로등</span>
+          <span><span class="dot" style="background:var(--info)"></span>CCTV</span>
+          <span><span class="dot" style="background:var(--warn)"></span>위험 신고</span>
+        </div>
+        <div class="status" id="status">지도를 옮겨 원하는 동네를 화면에 담고, 오른쪽에서 “이 지역 불러오기”를 누르세요.</div>
       </div>
-      <div class="hint" id="hint">출발지로 쓸 지점을 클릭하세요.</div>
     </div>
 
     <div>
       <div class="card">
-        <h2>모드</h2>
+        <h2>1. 데이터 불러오기</h2>
+        <button class="btn-main" id="load" style="width:100%">이 지역 불러오기</button>
+        <div class="note">지금 화면에 보이는 범위의 <b>도로·가로등·CCTV</b>를 OpenStreetMap에서 가져옵니다. 범위가 넓으면 오래 걸리니 동네 하나 정도로 좁혀 주세요.</div>
+        <div class="alert" id="lamp-alert"></div>
+        <div class="filerow">
+          <input type="file" id="csv" accept=".csv,.txt">
+        </div>
+        <div class="note">공공데이터포털에서 받은 <b>가로등 CSV</b>가 있으면 여기에 넣어 보완할 수 있습니다. 위도·경도 열을 자동으로 찾습니다.</div>
+      </div>
+
+      <div class="card">
+        <h2>2. 경로 찾기</h2>
         <div class="modes" id="modes">
-          <button data-mode="route" data-on="1">경로 지정</button>
-          <button data-mode="lamp">가로등 on/off</button>
+          <button data-mode="route" data-on="1">출발·도착</button>
+          <button data-mode="lamp">가로등 추가</button>
           <button data-mode="report">위험 신고</button>
         </div>
-
-        <div class="stats">
+        <div class="stats" style="margin-top:12px">
           <div class="stat safe"><div class="k">안전 경로 점수</div><div class="v" id="s-safe">–</div></div>
           <div class="stat fast"><div class="k">최단 경로 점수</div><div class="v" id="s-fast">–</div></div>
-          <div class="stat"><div class="k">안전 경로 거리 · 시간</div><div class="v" id="s-dist" style="font-size:15px">–</div></div>
-          <div class="stat"><div class="k">최단 경로 거리 · 시간</div><div class="v" id="s-dist2" style="font-size:15px">–</div></div>
+          <div class="stat"><div class="k">안전 경로</div><div class="v sm" id="s-dist">–</div></div>
+          <div class="stat"><div class="k">최단 경로</div><div class="v sm" id="s-dist2">–</div></div>
         </div>
-
         <div class="row">
           <label>안전 민감도</label>
           <input type="range" id="alpha" min="0" max="6" step="0.2" value="3">
@@ -124,131 +164,190 @@
           <input type="range" id="wc" min="0" max="1" step="0.05" value="0.28">
           <span class="num" id="wc-v">0.28</span>
         </div>
-        <button class="btn ghost" id="reset">처음 상태로</button>
+        <button id="clear" style="width:100%">출발·도착 지우기</button>
       </div>
 
-      <div class="card" style="margin-top:14px">
-        <h2>AI 신고 접수</h2>
-        <div style="font-size:12px;color:var(--ink-3);margin-bottom:8px">
-          신고 모드에서 길을 하나 고른 뒤, 말하듯이 적어 보세요.
-        </div>
+      <div class="card">
+        <h2>3. AI 신고 접수</h2>
+        <div class="note" style="margin:0 0 8px">위험 신고 모드에서 길을 하나 고른 뒤, 말하듯이 적어 보세요.</div>
         <textarea id="ai-in" placeholder="예) 여기 가로등이 며칠째 깜빡거려요. 밤에 앞이 거의 안 보여요."></textarea>
-        <button class="btn" id="ai-go">AI로 분석하고 등록</button>
+        <button class="btn-main" id="ai-go" style="width:100%; margin-top:8px">AI로 분석하고 등록</button>
         <div class="aiout" id="ai-out"></div>
       </div>
     </div>
   </div>
-
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-const N = 9, SP = 52, M = 34;
-const PX_TO_M = 100 / SP;
+// ─────────────────────────────────────────────────────────────
+// 밝길 v2 — 실제 지도 기반
+// 데이터: OpenStreetMap (Overpass API) / 지도 타일: CARTO / 주소검색: Nominatim
+// 계산 방식은 v1과 같습니다. 좌표가 격자에서 위경도로 바뀌었을 뿐입니다.
+// ─────────────────────────────────────────────────────────────
+
+const OVERPASS = "https://overpass-api.de/api/interpreter";
 const WALK_M_PER_MIN = 67;
 
-const nodes = [];
-for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
-  nodes.push({ id: r * N + c, r, c, x: M + c * SP, y: M + r * SP });
+// 걸어서 다닐 수 있는 길만 고릅니다 (고속도로·자동차전용도로 제외)
+const WALKABLE =
+  "^(residential|living_street|unclassified|tertiary|tertiary_link|secondary|secondary_link|" +
+  "service|footway|path|pedestrian|steps|track|cycleway|road)$";
 
-const inPark = n => n.r >= 3 && n.r <= 5 && n.c >= 3 && n.c <= 5;
+let map, layers = {};
+let G = null;              // 도로망 그래프
+let lamps = [], cctvs = [];
+let lampGrid = null;
+let start = null, goal = null;
+let mode = "route", selEdge = -1;
 
-const edges = [];
-const adj = Array.from({ length: N * N }, () => []);
-function addEdge(a, b) {
-  const na = nodes[a], nb = nodes[b];
-  if (inPark(na) && inPark(nb)) return;
-  const len = Math.sqrt((na.x - nb.x) ** 2 + (na.y - nb.y) ** 2);
-  const e = { a, b, len, reports: [] };
-  const i = edges.push(e) - 1;
-  adj[a].push({ to: b, e: i });
-  adj[b].push({ to: a, e: i });
-}
-for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
-  const id = r * N + c;
-  if (c < N - 1) addEdge(id, id + 1);
-  if (r < N - 1) addEdge(id, id + N);
-}
+// ── 지도 만들기 ──────────────────────────────────────────────
+map = L.map("map", { zoomControl: true }).setView([36.3504, 127.3845], 16); // 기본: 대전
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+  attribution: '지도 &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> 기여자, 타일 &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  maxZoom: 19, subdomains: "abcd"
+}).addTo(map);
 
-const LAMP_SEED = [
-  [0,0],[0,2],[0,4],[0,6],[0,8],
-  [1,0],[1,4],[1,8],
-  [2,0],[2,2],[2,4],[2,6],[2,8],
-  [3,0],[3,8],
-  [4,0],[4,2],[4,6],[4,8],
-  [5,0],[5,8],
-  [6,0],[6,4],[6,8],
-  [7,2],[7,6],
-  [8,0],[8,2],[8,4],[8,6],[8,8]
-];
-const CCTV_SEED = [[0,4],[2,2],[2,6],[4,0],[4,8],[6,4],[8,2],[8,6]];
+layers.glow  = L.layerGroup().addTo(map);
+layers.roads = L.layerGroup().addTo(map);
+layers.route = L.layerGroup().addTo(map);
+layers.marks = L.layerGroup().addTo(map);
 
-let lamps, cctvs, start, goal, mode = 'route', selEdge = -1;
-
-function reset() {
-  lamps = LAMP_SEED.map(([r, c]) => ({ id: r * N + c, on: true }));
-  cctvs = CCTV_SEED.map(([r, c]) => r * N + c);
-  edges.forEach(e => e.reports = []);
-  start = 8 * N + 1; goal = 0 * N + 7;
-  selEdge = -1;
-  draw();
+const $ = id => document.getElementById(id);
+function say(msg, kind) {
+  const el = $("status");
+  el.textContent = msg;
+  el.className = "status" + (kind ? " " + kind : "");
 }
 
-function illum(x, y) {
-  let E = 0;
-  for (const L of lamps) {
-    if (!L.on) continue;
-    const n = nodes[L.id];
-    const d2 = (n.x - x) ** 2 + (n.y - y) ** 2;
-    E += 2600 / (d2 + 225);
-  }
-  return E;
+// ── 거리 계산 (제곱근과 실수) ────────────────────────────────
+function dist(aLat, aLon, bLat, bLon) {
+  const R = 6371000;
+  const dLat = (bLat - aLat) * Math.PI / 180;
+  const dLon = (bLon - aLon) * Math.PI / 180;
+  const la = aLat * Math.PI / 180, lb = bLat * Math.PI / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la) * Math.cos(lb) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
 }
 const clamp01 = v => Math.max(0, Math.min(1, v));
 
-function cctvCover(x, y) {
+// ── 가로등 공간 색인 (많아지면 전부 훑기엔 느려서) ───────────
+function buildLampGrid() {
+  const CELL = 0.002; // 약 200m
+  lampGrid = new Map();
+  lamps.forEach((L, i) => {
+    const k = Math.round(L.lat / CELL) + ":" + Math.round(L.lon / CELL);
+    if (!lampGrid.has(k)) lampGrid.set(k, []);
+    lampGrid.get(k).push(i);
+  });
+  lampGrid.CELL = CELL;
+}
+function nearbyLamps(lat, lon) {
+  if (!lampGrid) return [];
+  const CELL = lampGrid.CELL;
+  const r = Math.round(lat / CELL), c = Math.round(lon / CELL);
+  const out = [];
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    const arr = lampGrid.get((r + dr) + ":" + (c + dc));
+    if (arr) out.push(...arr);
+  }
+  return out;
+}
+
+// ── 조도: 거리 역제곱 법칙 (이차함수) ────────────────────────
+//   E = Σ k / (d² + r₀²)    d는 미터
+function illum(lat, lon) {
+  let E = 0;
+  for (const i of nearbyLamps(lat, lon)) {
+    const L = lamps[i];
+    const d = dist(lat, lon, L.lat, L.lon);
+    E += 9000 / (d * d + 800);
+  }
+  return E;
+}
+function cctvCover(lat, lon) {
   let best = 0;
-  for (const id of cctvs) {
-    const n = nodes[id];
-    const d = Math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2);
-    best = Math.max(best, clamp01((150 - d) / 90));
+  for (const C of cctvs) {
+    const d = dist(lat, lon, C.lat, C.lon);
+    if (d < 200) best = Math.max(best, clamp01((200 - d) / 120));
   }
   return best;
 }
 
-function edgeScore(e) {
-  const A = nodes[e.a], B = nodes[e.b];
-  let light = 0, cc = 0;
-  const S = 5;
-  for (let i = 0; i <= S; i++) {
-    const t = i / S, x = A.x + (B.x - A.x) * t, y = A.y + (B.y - A.y) * t;
-    light += clamp01(illum(x, y) / 4.0);
-    cc += cctvCover(x, y);
+// ── 구간 안전 점수 ───────────────────────────────────────────
+function computeScores() {
+  if (!G) return;
+  const wl = +$("wl").value, wc = +$("wc").value;
+  for (const e of G.edges) {
+    const A = G.nodes.get(e.a), B = G.nodes.get(e.b);
+    let light = 0, cc = 0;
+    const S = 3;
+    for (let i = 0; i <= S; i++) {
+      const t = i / S;
+      const la = A.lat + (B.lat - A.lat) * t, lo = A.lon + (B.lon - A.lon) * t;
+      light += clamp01(illum(la, lo) / 4.0);
+      cc += cctvCover(la, lo);
+    }
+    light /= (S + 1); cc /= (S + 1);
+    const pen = e.reports.reduce((s, r) => s + 0.10 * r.level, 0);
+    e.light = light;
+    e.score = clamp01(wl * light + wc * cc + 0.10 - pen);
   }
-  light /= (S + 1); cc /= (S + 1);
-  const wl = +document.getElementById('wl').value;
-  const wc = +document.getElementById('wc').value;
-  const pen = e.reports.reduce((s, r) => s + 0.10 * r.level, 0);
-  return { score: clamp01(wl * light + wc * cc + 0.10 - pen), light, cc };
 }
 
-function dijkstra(src, dst, alpha) {
-  const dist = new Array(N * N).fill(Infinity), prev = new Array(N * N).fill(-1);
-  const used = new Array(N * N).fill(false);
-  dist[src] = 0;
-  for (let k = 0; k < N * N; k++) {
-    let u = -1, bd = Infinity;
-    for (let i = 0; i < N * N; i++) if (!used[i] && dist[i] < bd) { bd = dist[i]; u = i; }
-    if (u < 0) break;
-    used[u] = true;
-    for (const { to, e } of adj[u]) {
-      const E = edges[e];
-      const cost = E.len * (1 + alpha * (1 - edgeScore(E).score));
-      if (dist[u] + cost < dist[to]) { dist[to] = dist[u] + cost; prev[to] = u; }
+// ── 우선순위 큐 (다익스트라용) ───────────────────────────────
+class Heap {
+  constructor() { this.a = []; }
+  push(k, v) {
+    this.a.push([k, v]);
+    let i = this.a.length - 1;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (this.a[p][0] <= this.a[i][0]) break;
+      [this.a[p], this.a[i]] = [this.a[i], this.a[p]]; i = p;
     }
   }
+  pop() {
+    const top = this.a[0], last = this.a.pop();
+    if (this.a.length) {
+      this.a[0] = last;
+      let i = 0;
+      for (;;) {
+        const l = 2 * i + 1, r = l + 1; let m = i;
+        if (l < this.a.length && this.a[l][0] < this.a[m][0]) m = l;
+        if (r < this.a.length && this.a[r][0] < this.a[m][0]) m = r;
+        if (m === i) break;
+        [this.a[m], this.a[i]] = [this.a[i], this.a[m]]; i = m;
+      }
+    }
+    return top;
+  }
+  get size() { return this.a.length; }
+}
+
+// ── 최단 경로 (α=0이면 순수 최단, 클수록 밝은 길 선호) ───────
+function route(src, dst, alpha) {
+  if (!G) return null;
+  const dist_ = new Map(), prev = new Map(), done = new Set();
+  const h = new Heap();
+  dist_.set(src, 0); h.push(0, src);
+  while (h.size) {
+    const [d, u] = h.pop();
+    if (done.has(u)) continue;
+    done.add(u);
+    if (u === dst) break;
+    for (const { to, e } of (G.adj.get(u) || [])) {
+      const E = G.edges[e];
+      const cost = E.len * (1 + alpha * (1 - E.score));
+      const nd = d + cost;
+      if (nd < (dist_.get(to) ?? Infinity)) {
+        dist_.set(to, nd); prev.set(to, u); h.push(nd, to);
+      }
+    }
+  }
+  if (!done.has(dst)) return null;
   const path = []; let cur = dst;
-  if (prev[cur] === -1 && cur !== src) return null;
-  while (cur !== -1) { path.unshift(cur); cur = prev[cur]; }
+  while (cur !== undefined) { path.unshift(cur); cur = prev.get(cur); }
   return path;
 }
 
@@ -256,197 +355,384 @@ function pathInfo(path) {
   if (!path || path.length < 2) return null;
   let len = 0, sc = 0, dark = 0;
   for (let i = 0; i < path.length - 1; i++) {
-    const ei = adj[path[i]].find(x => x.to === path[i + 1]).e;
-    const E = edges[ei], s = edgeScore(E).score;
-    len += E.len; sc += s;
-    if (s < 0.35) dark++;
+    const link = (G.adj.get(path[i]) || []).find(x => x.to === path[i + 1]);
+    if (!link) continue;
+    const E = G.edges[link.e];
+    len += E.len; sc += E.score;
+    if (E.score < 0.35) dark++;
   }
-  const meters = len * PX_TO_M;
   return {
-    meters: Math.round(meters),
-    minutes: Math.max(1, Math.round(meters / WALK_M_PER_MIN)),
+    meters: Math.round(len),
+    minutes: Math.max(1, Math.round(len / WALK_M_PER_MIN)),
     score: Math.round((sc / (path.length - 1)) * 100),
     dark
   };
 }
+const latlngs = path => path.map(id => { const n = G.nodes.get(id); return [n.lat, n.lon]; });
 
-function pathD(path) {
-  return path.map((id, i) => (i ? 'L' : 'M') + nodes[id].x + ' ' + nodes[id].y).join(' ');
+// ── Overpass에서 데이터 가져오기 ────────────────────────────
+async function overpass(query) {
+  const res = await fetch(OVERPASS, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "data=" + encodeURIComponent(query)
+  });
+  if (!res.ok) throw new Error("Overpass 응답 " + res.status);
+  return await res.json();
 }
 
-function draw() {
-  const svg = document.getElementById('map');
-  let h = '';
+async function loadArea() {
+  const b = map.getBounds();
+  const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]
+    .map(v => v.toFixed(5)).join(",");
 
-  h += '<defs><radialGradient id="glow"><stop offset="0%" stop-color="#FFC24B" stop-opacity=".38"/>' +
-       '<stop offset="55%" stop-color="#FFC24B" stop-opacity=".10"/>' +
-       '<stop offset="100%" stop-color="#FFC24B" stop-opacity="0"/></radialGradient></defs>';
-
-  h += '<rect x="' + (M + 3 * SP) + '" y="' + (M + 3 * SP) + '" width="' + (2 * SP) + '" height="' + (2 * SP) +
-       '" rx="10" fill="#111C17" stroke="#1E3327"/>';
-  h += '<text x="' + (M + 4 * SP) + '" y="' + (M + 4 * SP + 4) + '" fill="#2E4A38" font-size="11" text-anchor="middle">근린공원</text>';
-
-  for (const L of lamps) if (L.on) {
-    const n = nodes[L.id];
-    h += '<circle cx="' + n.x + '" cy="' + n.y + '" r="66" fill="url(#glow)"/>';
+  const areaKm2 = (dist(b.getSouth(), b.getWest(), b.getNorth(), b.getWest()) / 1000) *
+                  (dist(b.getSouth(), b.getWest(), b.getSouth(), b.getEast()) / 1000);
+  if (areaKm2 > 12) {
+    say("범위가 너무 넓습니다 (약 " + areaKm2.toFixed(1) + "km²). 지도를 확대해 주세요.", "err");
+    return;
   }
 
-  edges.forEach((e, i) => {
-    const A = nodes[e.a], B = nodes[e.b];
-    const s = edgeScore(e).score;
-    const g = Math.round(34 + s * 74), b = Math.round(48 + s * 70);
-    const col = 'rgb(' + Math.round(30 + s * 58) + ',' + g + ',' + b + ')';
-    h += '<line x1="' + A.x + '" y1="' + A.y + '" x2="' + B.x + '" y2="' + B.y +
-         '" stroke="' + (i === selEdge ? '#6FA8FF' : col) + '" stroke-width="' + (i === selEdge ? 7 : 5) +
-         '" stroke-linecap="round"/>';
-    h += '<line class="hit" data-e="' + i + '" x1="' + A.x + '" y1="' + A.y + '" x2="' + B.x + '" y2="' + B.y +
-         '" stroke="transparent" stroke-width="14" stroke-linecap="round" style="cursor:pointer"/>';
+  $("load").disabled = true;
+  say("도로망을 불러오는 중…", "busy");
+
+  try {
+    const roadQ =
+      "[out:json][timeout:40];" +
+      'way["highway"~"' + WALKABLE + '"]["access"!~"^(private|no)$"](' + bbox + ");" +
+      "out body;>;out skel qt;";
+    const rd = await overpass(roadQ);
+
+    const nodes = new Map();
+    for (const el of rd.elements) if (el.type === "node") nodes.set(el.id, { lat: el.lat, lon: el.lon });
+
+    const edges = [], adj = new Map();
+    const link = (a, b, i) => {
+      if (!adj.has(a)) adj.set(a, []);
+      adj.get(a).push({ to: b, e: i });
+    };
+    const used = new Set();
+    for (const el of rd.elements) {
+      if (el.type !== "way" || !el.nodes) continue;
+      for (let i = 0; i < el.nodes.length - 1; i++) {
+        const a = el.nodes[i], b = el.nodes[i + 1];
+        const na = nodes.get(a), nb = nodes.get(b);
+        if (!na || !nb) continue;
+        const len = dist(na.lat, na.lon, nb.lat, nb.lon);
+        if (len < 0.5) continue;
+        const idx = edges.push({ a, b, len, score: 0.5, light: 0, reports: [] }) - 1;
+        link(a, b, idx); link(b, a, idx);
+        used.add(a); used.add(b);
+      }
+    }
+    for (const id of [...nodes.keys()]) if (!used.has(id)) nodes.delete(id);
+
+    if (!edges.length) {
+      say("이 범위에서 걸을 수 있는 길을 찾지 못했습니다. 위치를 옮겨 보세요.", "err");
+      $("load").disabled = false;
+      return;
+    }
+    G = { nodes, edges, adj };
+
+    say("가로등·CCTV를 불러오는 중…", "busy");
+    const lampQ =
+      "[out:json][timeout:30];(" +
+      'node["highway"="street_lamp"](' + bbox + ");" +
+      'node["man_made"="surveillance"](' + bbox + ");" +
+      ");out body qt;";
+    const ld = await overpass(lampQ);
+
+    lamps = []; cctvs = [];
+    for (const el of ld.elements) {
+      if (el.type !== "node") continue;
+      if (el.tags && el.tags.highway === "street_lamp") lamps.push({ lat: el.lat, lon: el.lon, src: "osm" });
+      else cctvs.push({ lat: el.lat, lon: el.lon });
+    }
+
+    buildLampGrid();
+    computeScores();
+    start = goal = null; selEdge = -1;
+    drawAll();
+
+    say("도로 " + edges.length + "구간 · 가로등 " + lamps.length + "개 · CCTV " + cctvs.length +
+        "개를 불러왔습니다. 지도에서 출발지와 도착지를 클릭하세요.");
+
+    const al = $("lamp-alert");
+    if (lamps.length < 15) {
+      al.classList.add("on");
+      al.innerHTML = "가로등 데이터가 <b>" + lamps.length + "개</b>뿐입니다. OpenStreetMap에 아직 등록이 적은 지역이에요.<br>" +
+        "① 공공데이터포털 CSV를 아래에서 넣거나 ② “가로등 추가” 모드로 직접 찍어 채울 수 있습니다.";
+    } else {
+      al.classList.remove("on");
+    }
+  } catch (e) {
+    say("불러오기 실패: " + e.message + " — 잠시 뒤 다시 시도해 주세요.", "err");
+  }
+  $("load").disabled = false;
+}
+
+// ── 화면 그리기 ─────────────────────────────────────────────
+function scoreColor(s) {
+  const r = Math.round(38 + s * 45), g = Math.round(52 + s * 110), b = Math.round(70 + s * 90);
+  return "rgb(" + r + "," + g + "," + b + ")";
+}
+
+function drawAll() {
+  layers.glow.clearLayers(); layers.roads.clearLayers(); layers.marks.clearLayers();
+  if (!G) return;
+
+  // 가로등 불빛 (많으면 화면이 무거워져서 600개까지만)
+  lamps.slice(0, 600).forEach(lp => {
+    layers.glow.addLayer(L.circle([lp.lat, lp.lon], {
+      radius: 38, stroke: false, fillColor: "#FFC24B", fillOpacity: 0.10, interactive: false
+    }));
   });
 
-  const alpha = +document.getElementById('alpha').value;
-  const pFast = dijkstra(start, goal, 0);
-  const pSafe = dijkstra(start, goal, alpha);
-
-  if (pFast) h += '<path d="' + pathD(pFast) + '" fill="none" stroke="#FF7A6B" stroke-width="3" stroke-dasharray="6 5" stroke-linecap="round" opacity=".85"/>';
-  if (pSafe) h += '<path d="' + pathD(pSafe) + '" fill="none" stroke="#3DDC97" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>';
-
-  for (const id of cctvs) {
-    const n = nodes[id];
-    h += '<rect x="' + (n.x - 4.5) + '" y="' + (n.y - 4.5) + '" width="9" height="9" rx="2" fill="#6FA8FF" opacity=".9"/>';
-  }
-  for (const L of lamps) {
-    const n = nodes[L.id];
-    h += '<circle cx="' + n.x + '" cy="' + n.y + '" r="4.5" fill="' + (L.on ? '#FFC24B' : '#3A4356') + '"/>';
-  }
-  edges.forEach(e => e.reports.forEach(() => {
-    const A = nodes[e.a], B = nodes[e.b];
-    h += '<circle cx="' + ((A.x + B.x) / 2) + '" cy="' + ((A.y + B.y) / 2) + '" r="4" fill="#FF4D4D"/>';
-  }));
-
-  nodes.forEach(n => {
-    h += '<circle class="hit" data-n="' + n.id + '" cx="' + n.x + '" cy="' + n.y + '" r="11" fill="transparent" style="cursor:pointer"/>';
+  G.edges.forEach((e, i) => {
+    const A = G.nodes.get(e.a), B = G.nodes.get(e.b);
+    const line = L.polyline([[A.lat, A.lon], [B.lat, B.lon]], {
+      color: i === selEdge ? "#6FA8FF" : scoreColor(e.score),
+      weight: i === selEdge ? 7 : 4, opacity: 0.95
+    });
+    line.on("click", ev => {
+      L.DomEvent.stop(ev);
+      if (mode === "report") { selEdge = i; drawAll(); say("구간을 선택했습니다. 아래 3번에서 상황을 적어 보세요."); }
+    });
+    layers.roads.addLayer(line);
   });
 
-  const sN = nodes[start], gN = nodes[goal];
-  h += '<circle cx="' + sN.x + '" cy="' + sN.y + '" r="8" fill="#6FA8FF" stroke="#0D141F" stroke-width="2.5"/>';
-  h += '<text x="' + sN.x + '" y="' + (sN.y - 14) + '" fill="#6FA8FF" font-size="11" font-weight="700" text-anchor="middle">출발</text>';
-  h += '<circle cx="' + gN.x + '" cy="' + gN.y + '" r="8" fill="#3DDC97" stroke="#0D141F" stroke-width="2.5"/>';
-  h += '<text x="' + gN.x + '" y="' + (gN.y - 14) + '" fill="#3DDC97" font-size="11" font-weight="700" text-anchor="middle">도착</text>';
+  lamps.forEach(lp => layers.marks.addLayer(L.circleMarker([lp.lat, lp.lon], {
+    radius: 3.5, stroke: false, fillColor: lp.src === "csv" ? "#FFD98A" : "#FFC24B",
+    fillOpacity: 0.95, interactive: false
+  })));
+  cctvs.forEach(cv => layers.marks.addLayer(L.circleMarker([cv.lat, cv.lon], {
+    radius: 3.5, stroke: false, fillColor: "#6FA8FF", fillOpacity: 0.9, interactive: false
+  })));
+  G.edges.forEach(e => {
+    if (!e.reports.length) return;
+    const A = G.nodes.get(e.a), B = G.nodes.get(e.b);
+    layers.marks.addLayer(L.circleMarker([(A.lat + B.lat) / 2, (A.lon + B.lon) / 2], {
+      radius: 5, stroke: false, fillColor: "#FF4D4D", fillOpacity: 0.95, interactive: false
+    }));
+  });
 
-  svg.innerHTML = h;
+  if (start) {
+    const n = G.nodes.get(start);
+    layers.marks.addLayer(L.circleMarker([n.lat, n.lon],
+      { radius: 8, color: "#0D141F", weight: 2.5, fillColor: "#6FA8FF", fillOpacity: 1 }).bindTooltip("출발"));
+  }
+  if (goal) {
+    const n = G.nodes.get(goal);
+    layers.marks.addLayer(L.circleMarker([n.lat, n.lon],
+      { radius: 8, color: "#0D141F", weight: 2.5, fillColor: "#3DDC97", fillOpacity: 1 }).bindTooltip("도착"));
+  }
+
+  drawRoutes();
+}
+
+function drawRoutes() {
+  layers.route.clearLayers();
+  const setStat = (a, b, c, d) => {
+    $("s-safe").textContent = a; $("s-fast").textContent = b;
+    $("s-dist").textContent = c; $("s-dist2").textContent = d;
+  };
+  if (!G || !start || !goal) { setStat("–", "–", "–", "–"); return; }
+
+  const alpha = +$("alpha").value;
+  const pFast = route(start, goal, 0);
+  const pSafe = route(start, goal, alpha);
+
+  if (!pFast || !pSafe) {
+    setStat("–", "–", "–", "–");
+    say("두 지점이 길로 이어져 있지 않습니다. 다른 곳을 골라 보세요.", "err");
+    return;
+  }
+  layers.route.addLayer(L.polyline(latlngs(pFast), { color: "#FF7A6B", weight: 3, opacity: .85, dashArray: "6 6" }));
+  layers.route.addLayer(L.polyline(latlngs(pSafe), { color: "#3DDC97", weight: 5, opacity: .95 }));
 
   const iS = pathInfo(pSafe), iF = pathInfo(pFast);
-  document.getElementById('s-safe').textContent = iS ? iS.score + '점' : '–';
-  document.getElementById('s-fast').textContent = iF ? iF.score + '점' : '–';
-  document.getElementById('s-dist').textContent = iS ? iS.meters + 'm · ' + iS.minutes + '분' : '–';
-  document.getElementById('s-dist2').textContent = iF ? iF.meters + 'm · ' + iF.minutes + '분' : '–';
+  setStat(iS.score + "점", iF.score + "점",
+          iS.meters + "m · " + iS.minutes + "분", iF.meters + "m · " + iF.minutes + "분");
 
-  if (iS && iF) {
-    const extra = iS.meters - iF.meters;
-    document.getElementById('hint').textContent =
-      extra > 0
-        ? extra + 'm(약 ' + Math.max(1, iS.minutes - iF.minutes) + '분) 더 걸어서 안전 점수를 ' + (iS.score - iF.score) + '점 올렸습니다. 어두운 구간 ' + iS.dark + '곳 통과.'
-        : '최단 경로가 이미 가장 밝은 길입니다.';
-  }
+  const extra = iS.meters - iF.meters;
+  say(extra > 5
+    ? extra + "m 더 걸어서 안전 점수를 " + (iS.score - iF.score) + "점 올렸습니다. 어두운 구간 " + iS.dark + "곳 통과."
+    : "최단 경로가 이미 가장 밝은 길입니다.");
 }
 
-let clickStage = 0;
-document.getElementById('map').addEventListener('click', ev => {
-  const t = ev.target;
-  if (!t.classList.contains('hit')) return;
-  if (t.dataset.n !== undefined) {
-    const id = +t.dataset.n;
-    if (mode === 'route') {
-      if (clickStage === 0) { start = id; clickStage = 1; }
-      else { goal = id; clickStage = 0; }
-      draw();
-    } else if (mode === 'lamp') {
-      const L = lamps.find(l => l.id === id);
-      if (L) L.on = !L.on;
-      else lamps.push({ id, on: true });
-      draw();
-    }
-  } else if (t.dataset.e !== undefined && mode === 'report') {
-    selEdge = +t.dataset.e;
-    draw();
-    document.getElementById('hint').textContent = '이 구간을 선택했습니다. 오른쪽에 상황을 적고 AI 분석을 눌러 보세요.';
+// ── 가장 가까운 도로 지점 찾기 ──────────────────────────────
+function snap(lat, lon) {
+  if (!G) return null;
+  let best = null, bd = Infinity;
+  for (const [id, n] of G.nodes) {
+    const d = dist(lat, lon, n.lat, n.lon);
+    if (d < bd) { bd = d; best = id; }
+  }
+  return bd < 300 ? best : null;
+}
+
+// ── 지도 클릭 ───────────────────────────────────────────────
+map.on("click", ev => {
+  const { lat, lng } = ev.latlng;
+  if (mode === "lamp") {
+    lamps.push({ lat, lon: lng, src: "csv" });
+    buildLampGrid(); computeScores(); drawAll();
+    say("가로등을 추가했습니다. 현재 " + lamps.length + "개.");
+    return;
+  }
+  if (mode !== "route") return;
+  if (!G) { say("먼저 “이 지역 불러오기”를 눌러 주세요.", "err"); return; }
+  const id = snap(lat, lng);
+  if (!id) { say("근처에 걸을 수 있는 길이 없습니다. 길 가까이 클릭해 주세요.", "err"); return; }
+  if (!start || (start && goal)) { start = id; goal = null; }
+  else goal = id;
+  drawAll();
+});
+
+// ── 검색 / 내 위치 ──────────────────────────────────────────
+// 1순위: 우리 백엔드(/api/geocode)  2순위: Nominatim 직접 호출
+async function geocode(q) {
+  try {
+    const r = await fetch("/api/geocode?q=" + encodeURIComponent(q));
+    const d = await r.json();
+    if (r.ok && d.결과 && d.결과.length) return { list: d.결과, via: "백엔드" };
+    if (d.error && r.status === 404) throw new Error(d.error);
+  } catch (e) {
+    if (e.message && e.message.includes("찾지 못")) throw e;
+  }
+  const r2 = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=5&accept-language=ko&countrycodes=kr&q=" + encodeURIComponent(q));
+  if (!r2.ok) throw new Error("검색 서버 응답 " + r2.status);
+  const d2 = await r2.json();
+  if (!d2.length) throw new Error("그런 곳을 찾지 못했습니다");
+  return {
+    list: d2.map(x => ({ 이름: x.display_name, lat: +x.lat, lon: +x.lon })),
+    via: "직접"
+  };
+}
+
+$("go-search").addEventListener("click", async () => {
+  const q = $("q").value.trim();
+  if (!q) return;
+  say("주소를 찾는 중…", "busy");
+  try {
+    const { list, via } = await geocode(q);
+    const hit = list[0];
+    map.setView([hit.lat, hit.lon], 16);
+    say(hit.이름.split(",").slice(0, 3).join(", ") + " (" + via + " 검색) — “이 지역 불러오기”를 눌러 주세요.");
+  } catch (e) {
+    const local = location.protocol === "file:";
+    say("검색 실패: " + e.message +
+        (local ? " — 지금 파일을 직접 열어 보고 계십니다. 배포된 주소(pages.dev)로 접속해야 외부 데이터를 쓸 수 있습니다."
+               : " — 지도를 직접 옮겨서 동네를 찾아도 됩니다."), "err");
   }
 });
+$("q").addEventListener("keydown", e => { if (e.key === "Enter") $("go-search").click(); });
 
-document.getElementById('modes').addEventListener('click', ev => {
-  const b = ev.target.closest('button'); if (!b) return;
-  mode = b.dataset.mode;
-  [...document.querySelectorAll('#modes button')].forEach(x => x.dataset.on = x === b ? '1' : '0');
-  clickStage = 0; selEdge = -1;
-  document.getElementById('hint').textContent =
-    mode === 'route' ? '지점을 두 번 클릭하면 출발지와 도착지가 바뀝니다.'
-    : mode === 'lamp' ? '가로등을 클릭해 껐다 켜 보세요. 아무 지점이나 클릭하면 새 가로등이 생깁니다.'
-    : '위험하다고 느낀 길을 클릭해 선택하세요.';
-  draw();
+$("go-here").addEventListener("click", () => {
+  if (!navigator.geolocation) { say("이 브라우저는 위치 기능을 지원하지 않습니다.", "err"); return; }
+  say("현재 위치를 확인하는 중…", "busy");
+  navigator.geolocation.getCurrentPosition(
+    p => { map.setView([p.coords.latitude, p.coords.longitude], 16); say("이동했습니다. “이 지역 불러오기”를 눌러 주세요."); },
+    () => say("위치를 가져오지 못했습니다. 브라우저에서 위치 권한을 허용해 주세요.", "err")
+  );
 });
 
-['alpha', 'wl', 'wc'].forEach(id => {
-  const el = document.getElementById(id);
-  el.addEventListener('input', () => {
-    document.getElementById(id + '-v').textContent = (+el.value).toFixed(2).replace(/0$/, id === 'alpha' ? '' : '0');
-    if (id === 'alpha') document.getElementById('alpha-v').textContent = (+el.value).toFixed(1);
-    draw();
+// ── 공공데이터 CSV 불러오기 ─────────────────────────────────
+$("csv").addEventListener("change", ev => {
+  const f = ev.target.files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const lines = rd.result.split(/\r?\n/).filter(x => x.trim());
+    if (lines.length < 2) { say("CSV가 비어 있습니다.", "err"); return; }
+    const head = lines[0].split(",").map(s => s.replace(/["\s]/g, ""));
+    const find = keys => head.findIndex(h => keys.some(k => h.toLowerCase().includes(k)));
+    const iLat = find(["위도", "lat", "y좌표"]);
+    const iLon = find(["경도", "lon", "lng", "x좌표"]);
+    if (iLat < 0 || iLon < 0) {
+      say("위도·경도 열을 찾지 못했습니다. 열 이름에 ‘위도/경도’ 또는 ‘lat/lon’이 있어야 합니다.", "err");
+      return;
+    }
+    let n = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const c = lines[i].split(",");
+      const la = parseFloat(c[iLat]), lo = parseFloat(c[iLon]);
+      if (!isFinite(la) || !isFinite(lo)) continue;
+      if (la < 33 || la > 39 || lo < 124 || lo > 132) continue; // 한국 범위 밖 걸러내기
+      lamps.push({ lat: la, lon: lo, src: "csv" }); n++;
+    }
+    buildLampGrid(); computeScores(); drawAll();
+    say("CSV에서 가로등 " + n + "개를 추가했습니다. 총 " + lamps.length + "개.");
+    $("lamp-alert").classList.remove("on");
+  };
+  rd.readAsText(f, "utf-8");
+});
+
+// ── 조작 ────────────────────────────────────────────────────
+$("modes").addEventListener("click", ev => {
+  const b = ev.target.closest("button"); if (!b) return;
+  mode = b.dataset.mode; selEdge = -1;
+  [...document.querySelectorAll("#modes button")].forEach(x => x.dataset.on = x === b ? "1" : "0");
+  say(mode === "route" ? "지도를 클릭해 출발지와 도착지를 정하세요."
+    : mode === "lamp" ? "지도를 클릭하면 그 자리에 가로등이 추가됩니다."
+    : "위험하다고 느낀 길을 클릭해 선택하세요.");
+  drawAll();
+});
+["alpha", "wl", "wc"].forEach(id => {
+  $(id).addEventListener("input", () => {
+    $(id + "-v").textContent = id === "alpha" ? (+$(id).value).toFixed(1) : (+$(id).value).toFixed(2);
+    if (id !== "alpha") computeScores();
+    drawAll();
   });
 });
-document.getElementById('reset').addEventListener('click', reset);
+$("clear").addEventListener("click", () => { start = goal = null; drawAll(); say("출발·도착을 지웠습니다."); });
+$("load").addEventListener("click", loadArea);
 
-// ── AI 신고 분석 ──────────────────────────────────────────────
-// 이 앱은 AI를 직접 부르지 않고 백엔드(/api/analyze)에게 부탁합니다.
-// API 키를 브라우저에 두지 않기 위해서입니다.
-// functions/api/analyze.js 가 배포되기 전(1단계)에는 이 호출이 실패하고,
-// 아래 fallback() 규칙 분석이 대신 동작합니다. 화면은 그대로 작동합니다.
+// ── AI 신고 분석 ────────────────────────────────────────────
+// 백엔드(/api/analyze)에게 부탁합니다. API 키는 브라우저에 두지 않습니다.
 async function analyze(text) {
-  const res = await fetch('/api/analyze', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const res = await fetch("/api/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text })
   });
-  if (!res.ok) throw new Error('backend unavailable');
+  if (!res.ok) throw new Error("backend");
   const r = await res.json();
   if (r.error) throw new Error(r.error);
   return r;
 }
-
-// AI 호출이 안 되는 환경(오프라인 시연 등)을 위한 대체 규칙
 function fallback(text) {
   const t = text.toLowerCase();
   const hit = (...w) => w.some(x => t.includes(x));
-  let 유형 = '기타', 심각도 = 1;
-  if (hit('가로등', '어둡', '불이', '깜빡', '조명')) { 유형 = '조명'; 심각도 = 2; }
-  else if (hit('안 보', '가려', '나무', '시야', '골목')) { 유형 = '시야'; 심각도 = 2; }
-  else if (hit('턱', '패인', '공사', '미끄')) { 유형 = '노면'; 심각도 = 2; }
-  else if (hit('무섭', '따라', '취객', '수상')) { 유형 = '치안'; 심각도 = 3; }
-  if (hit('며칠', '계속', '전혀', '아예')) 심각도 = Math.min(3, 심각도 + 1);
-  return { 유형, 심각도, 요약: text.slice(0, 15), 조치: '현장 확인 필요' };
+  let 유형 = "기타", 심각도 = 1;
+  if (hit("가로등", "어둡", "불이", "깜빡", "조명")) { 유형 = "조명"; 심각도 = 2; }
+  else if (hit("안 보", "가려", "나무", "시야", "골목")) { 유형 = "시야"; 심각도 = 2; }
+  else if (hit("턱", "패인", "공사", "미끄")) { 유형 = "노면"; 심각도 = 2; }
+  else if (hit("무섭", "따라", "취객", "수상")) { 유형 = "치안"; 심각도 = 3; }
+  if (hit("며칠", "계속", "전혀", "아예")) 심각도 = Math.min(3, 심각도 + 1);
+  return { 유형, 심각도, 요약: text.slice(0, 15), 조치: "현장 확인 필요" };
 }
 
-document.getElementById('ai-go').addEventListener('click', async () => {
-  const btn = document.getElementById('ai-go');
-  const out = document.getElementById('ai-out');
-  const text = document.getElementById('ai-in').value.trim();
-  if (!text) { alert('신고 내용을 적어 주세요.'); return; }
+$("ai-go").addEventListener("click", async () => {
+  const btn = $("ai-go"), out = $("ai-out");
+  const text = $("ai-in").value.trim();
+  if (!text) { alert("신고 내용을 적어 주세요."); return; }
   if (selEdge < 0) { alert('먼저 "위험 신고" 모드에서 지도의 길을 하나 클릭하세요.'); return; }
 
-  btn.disabled = true; btn.textContent = '분석 중…';
+  btn.disabled = true; btn.textContent = "분석 중…";
   let r, engine;
-  try { r = await analyze(text); engine = 'AI 분석'; }
-  catch (e) { r = fallback(text); engine = '규칙 분석 (AI 서버 없음)'; }
+  try { r = await analyze(text); engine = "AI 분석" + (r.모델 ? " · " + r.모델 : ""); }
+  catch { r = fallback(text); engine = "규칙 분석 (AI 서버 없음)"; }
 
-  edges[selEdge].reports.push({ level: r.심각도, type: r.유형 });
-  out.style.display = 'block';
-  out.innerHTML = '<div class="t">' + r.유형 + ' · 심각도 ' + r.심각도 + '단계</div>' +
-                  '<div>' + r.요약 + '</div>' +
-                  '<div style="color:var(--ink-3);margin-top:4px">제안 조치 — ' + (r.조치 || '현장 확인') + '</div>' +
-                  '<div style="color:var(--ink-3);margin-top:6px;font-size:11.5px">엔진 — ' + engine + '</div>';
-  document.getElementById('ai-in').value = '';
-  btn.disabled = false; btn.textContent = 'AI로 분석하고 등록';
-  draw();
+  G.edges[selEdge].reports.push({ level: r.심각도, type: r.유형 });
+  computeScores();
+  out.style.display = "block";
+  out.innerHTML = '<div class="t">' + r.유형 + " · 심각도 " + r.심각도 + "단계</div>" +
+                  "<div>" + r.요약 + "</div>" +
+                  '<div style="color:var(--ink-3);margin-top:4px">제안 조치 — ' + (r.조치 || "현장 확인") + "</div>" +
+                  '<div style="color:var(--ink-3);margin-top:5px;font-size:11.5px">엔진 — ' + engine + "</div>";
+  $("ai-in").value = "";
+  btn.disabled = false; btn.textContent = "AI로 분석하고 등록";
+  drawAll();
 });
-
-reset();
 </script>

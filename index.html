@@ -191,7 +191,14 @@
    데이터 © OpenStreetMap 기여자 / 타일 © CARTO
    ═══════════════════════════════════════════════════════════ */
 
-const OVERPASS = "https://overpass-api.de/api/interpreter";
+// Overpass 공개 서버는 자주 붐빕니다. 여러 곳을 순서대로 시도합니다.
+const MIRRORS = [
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+  "https://overpass.osm.jp/api/interpreter"
+];
+let mirror = 0;
 const WALK = 67;                     // m/분
 const F = 5;                          // 지표 개수
 const WALKABLE = "^(residential|living_street|unclassified|tertiary|tertiary_link|secondary|" +
@@ -264,15 +271,33 @@ class Grid {
   }
 }
 
-/* ── Overpass ── */
-async function ovp(q) {
-  const r = await fetch(OVERPASS, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: "data=" + encodeURIComponent(q)
-  });
-  if (!r.ok) throw new Error("Overpass " + r.status);
-  return r.json();
+/* ── Overpass: 서버가 죽어 있으면 다음 서버로 ──────────────
+   504(시간 초과) 429(너무 잦음) 503(과부하)는 서버 사정이므로
+   같은 요청을 다른 서버에 그대로 보냅니다.                    */
+async function ovp(q, label) {
+  let last = "";
+  for (let i = 0; i < MIRRORS.length; i++) {
+    const at = (mirror + i) % MIRRORS.length;
+    const host = MIRRORS[at].split("/")[2].split(".")[1] || MIRRORS[at].split("/")[2];
+    if (label) say(label + " (서버 " + (i + 1) + "/" + MIRRORS.length + " · " + host + ")", "busy");
+    try {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 45000);
+      const r = await fetch(MIRRORS[at], {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "data=" + encodeURIComponent(q),
+        signal: ctl.signal
+      });
+      clearTimeout(timer);
+      if (r.ok) { mirror = at; return r.json(); }     // 성공한 서버를 기억해 둔다
+      last = "응답 " + r.status;
+      if (r.status !== 504 && r.status !== 503 && r.status !== 429) break;
+    } catch (e) {
+      last = e.name === "AbortError" ? "시간 초과" : e.message;
+    }
+  }
+  throw new Error(last || "모든 서버 실패");
 }
 
 async function loadArea() {
@@ -280,28 +305,38 @@ async function loadArea() {
   const bb = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].map(v => v.toFixed(5)).join(",");
   const km2 = dist(b.getSouth(), b.getWest(), b.getNorth(), b.getWest()) / 1000 *
               dist(b.getSouth(), b.getWest(), b.getSouth(), b.getEast()) / 1000;
-  if (km2 > 12) { say("범위가 너무 넓습니다 (약 " + km2.toFixed(1) + "km²). 확대해 주세요.", "err"); return; }
+  if (km2 > 6) { say("범위가 너무 넓습니다 (약 " + km2.toFixed(1) + "km²). 지도를 확대해 동네 하나 정도로 좁혀 주세요.", "err"); return; }
 
   $("load").disabled = true;
   t0 = performance.now();
-  say("도로망과 시설을 불러오는 중…", "busy");
 
   try {
-    const qRoad = "[out:json][timeout:60];way[\"highway\"~\"" + WALKABLE + "\"]" +
+    // 필수: 도로망
+    const qRoad = "[out:json][timeout:50];way[\"highway\"~\"" + WALKABLE + "\"]" +
                   "[\"access\"!~\"^(private|no)$\"](" + bb + ");out body;>;out skel qt;";
-    const qPoi  = "[out:json][timeout:60];(" +
-      'way["building"](' + bb + ");" +
+    // 가벼움: 가로등·CCTV·상점 (점 데이터라 빠름)
+    const qPoi = "[out:json][timeout:40];(" +
       'node["highway"="street_lamp"](' + bb + ");" +
       'node["man_made"="surveillance"](' + bb + ");" +
       'node["shop"~"^(convenience|supermarket)$"](' + bb + ");" +
       'node["amenity"~"^(restaurant|cafe|fast_food|bar|pub|police|pharmacy|fuel|bank)$"](' + bb + ");" +
       'node["highway"="bus_stop"](' + bb + ");" +
-      ");out center qt;";
+      ");out body qt;";
 
-    const [rd, po] = await Promise.all([ovp(qRoad), ovp(qPoi)]);   // 두 요청을 동시에
+    const [rd, po] = await Promise.all([
+      ovp(qRoad, "도로망을 불러오는 중"),
+      ovp(qPoi, "가로등·상점을 불러오는 중")
+    ]);
     const tNet = performance.now();
 
-    build(rd, po);
+    // 무거움: 건물. 실패해도 앱은 그대로 돌아갑니다.
+    let bd = { elements: [] }, bldOk = true;
+    try {
+      const qBld = "[out:json][timeout:50];way[\"building\"](" + bb + ");out center qt;";
+      bd = await ovp(qBld, "건물을 불러오는 중");
+    } catch (e) { bldOk = false; }
+
+    build(rd, { elements: [...po.elements, ...bd.elements] }, bldOk);
     const tCalc = performance.now();
 
     start = goal = -1; selEdge = -1;
@@ -313,20 +348,25 @@ async function loadArea() {
     say("불러왔습니다. 지도에서 출발지와 도착지를 클릭하세요.");
 
     const al = $("alert");
-    if (D.lamps.pts.length < 15) {
+    if (!bldOk) {
+      al.className = "alert on";
+      al.innerHTML = "건물 데이터는 서버가 바빠 받지 못했습니다. <b>상점·정류장 밀도로 대신</b> 계산했습니다. " +
+        "정확도를 높이려면 잠시 뒤 다시 불러와 보세요.";
+    } else if (D.lamps.pts.length < 15) {
       al.className = "alert on";
       al.innerHTML = "가로등 데이터는 <b>" + D.lamps.pts.length + "개</b>뿐이지만 괜찮습니다. " +
         "건물 " + D.bld.pts.length.toLocaleString() + "동, 시설 " + D.act.pts.length +
-        "곳으로 <b>자연적 감시·활용성</b> 지표를 대신 계산했습니다.";
+        "곳으로 <b>주변 시선·밤에 사람</b> 지표를 대신 계산했습니다.";
     } else al.className = "alert";
   } catch (e) {
-    say("불러오기 실패: " + e.message + " — 잠시 뒤 다시 시도해 주세요.", "err");
+    say("불러오기 실패: " + e.message + " — 공개 서버가 붐비는 중입니다. " +
+        "지도를 더 확대해 범위를 좁히거나, 1~2분 뒤 다시 눌러 보세요.", "err");
   }
   $("load").disabled = false;
 }
 
 /* ── 그래프 + 지표 만들기 ── */
-function build(rd, po) {
+function build(rd, po, bldOk) {
   /* 1. 노드 */
   const raw = new Map();
   for (const el of rd.elements) if (el.type === "node") raw.set(el.id, el);
@@ -390,6 +430,7 @@ function build(rd, po) {
   };
   const np = []; for (let i = 0; i < n; i++) np.push({ lat: lat[i], lon: lon[i] });
   D.nodeGrid = new Grid(np, 0.004);
+  D.noBld = bldOk === false || bld.length === 0;
 
   indicators();
   recombine();
@@ -414,9 +455,11 @@ function indicators() {
     else if (t.lit === "no") light = Math.min(light, 0.12);
 
     // ② 자연적 감시 — 건물이 많을수록 창문(시선)이 많다
-    const nb = D.bld.count(la, lo, 70);
+    //    건물 데이터를 못 받았으면 상점·정류장 밀도로 대신한다
     const cc = clamp01((160 - D.cctv.nearest(la, lo)) / 120);
-    const watch = clamp01(0.72 * clamp01(nb / 12) + 0.28 * cc);
+    const eyes = D.noBld ? clamp01(D.act.count(la, lo, 150) / 6)
+                         : clamp01(D.bld.count(la, lo, 70) / 12);
+    const watch = clamp01(0.72 * eyes + 0.28 * cc);
 
     // ③ 활용성 — 밤에도 사람이 오가는가
     const active = clamp01(D.act.count(la, lo, 120) / 5);

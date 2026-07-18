@@ -71,16 +71,6 @@
   .aiout{margin-top:10px; padding:11px 13px; border-radius:9px; background:var(--panel-2); border-left:3px solid var(--lamp); font-size:12.5px; display:none}
   .aiout .t{font-weight:700; color:var(--lamp); margin-bottom:3px}
 
-  .formula{
-    margin-top:18px; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px;
-  }
-  .formula h2{margin:0 0 10px; font-size:13px; font-weight:700; color:var(--ink-2)}
-  code{
-    display:block; background:#080D15; border-radius:9px; padding:12px 14px; margin:8px 0;
-    font-family:ui-monospace,"SFMono-Regular",Menlo,monospace; font-size:12.5px; color:#B7E4FF; overflow-x:auto;
-  }
-  .formula p{margin:8px 0; font-size:13px; color:var(--ink-2)}
-  .formula strong{color:var(--ink)}
 </style>
 
 <div class="wrap">
@@ -149,19 +139,6 @@
     </div>
   </div>
 
-  <div class="formula">
-    <h2>교과 연계 — 이 앱이 실제로 쓰는 수학</h2>
-    <p><strong>1. 조도의 거리 역제곱 법칙 (이차함수)</strong><br>
-      가로등에서 멀어질수록 밝기는 거리의 제곱에 반비례해 줄어듭니다. 여러 가로등의 빛은 더해집니다.</p>
-    <code>E(p) = Σ  k / (d² + r₀²)     · d = 가로등까지 거리, r₀ = 보정 상수</code>
-    <p><strong>2. 두 점 사이 거리 (제곱근과 실수)</strong></p>
-    <code>d = √( (x₂−x₁)² + (y₂−y₁)² )   → Math.sqrt(dx*dx + dy*dy)</code>
-    <p><strong>3. 안전 점수와 경로 비용 (일차식·최적화)</strong><br>
-      각 구간의 안전 점수를 0~1로 매기고, 어두울수록 "멀게 느껴지는" 가상 거리를 씌운 뒤 최단 경로를 찾습니다.</p>
-    <code>score = w₁·조도 + w₂·CCTV + 0.10 − 0.30·신고수
-비용  = 실제거리 × ( 1 + α·(1 − score) )</code>
-    <p>α(안전 민감도)를 0으로 두면 최단 경로와 같아지고, 크게 올릴수록 돌아가더라도 밝은 길을 고릅니다. 슬라이더를 움직이며 확인해 보세요.</p>
-  </div>
 </div>
 
 <script>

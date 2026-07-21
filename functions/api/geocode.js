@@ -12,7 +12,7 @@ export async function onRequestGet({ request }) {
 
   const url = new URL("https://nominatim.openstreetmap.org/search");
   url.search = new URLSearchParams({
-    format: "jsonv2", limit: "5", countrycodes: "kr", "accept-language": language, q: query
+    format: "jsonv2", limit: "5", "accept-language": language, q: query
   }).toString();
 
   let response;

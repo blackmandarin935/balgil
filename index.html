@@ -9,16 +9,16 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   :root{
-    --night:#0D141F; --panel:#141D2B; --panel-2:#1B2637;
-    --line:#26344A; --line-2:#33455F;
-    --ink:#E9EFF7; --ink-2:#93A5BD; --ink-3:#5E7290;
-    --lamp:#FFC24B; --safe:#3DDC97; --fast:#FF7A6B; --info:#6FA8FF; --warn:#FF6B6B;
+    --night:#09111F; --panel:#101B2C; --panel-2:#16253A;
+    --line:#263A56; --line-2:#3E587A;
+    --ink:#F1F6FC; --ink-2:#A9BCD2; --ink-3:#6F87A5;
+    --lamp:#F3BA43; --safe:#38D996; --fast:#FF796B; --info:#75A9FF; --warn:#FF626D;
   }
   *{box-sizing:border-box}
   body{margin:0; background:var(--night); color:var(--ink);
     font-family:Pretendard,-apple-system,system-ui,sans-serif; font-size:14px; line-height:1.6;
     -webkit-font-smoothing:antialiased}
-  .wrap{max-width:1180px; margin:0 auto; padding:20px 16px 48px}
+  .wrap{max-width:1360px; margin:0 auto; padding:24px 20px 56px}
   header{display:flex; align-items:baseline; gap:12px}
   .logo{font-size:28px; font-weight:800; letter-spacing:-.03em}
   .logo b{color:var(--lamp)}
@@ -29,21 +29,21 @@
   select{appearance:none; padding:7px 28px 7px 10px; min-height:34px; font:inherit; font-size:12px;
     color:var(--ink); background:var(--panel-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20'%3E%3Cpath fill='%2393A5BD' d='m5 7 5 5 5-5z'/%3E%3C/svg%3E") no-repeat right 9px center;
     border:1px solid var(--line); border-radius:8px; cursor:pointer}
-  .grid{display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,342px); gap:16px}
+  .grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(320px,380px); gap:18px; align-items:start}
   @media (max-width:900px){.grid{grid-template-columns:1fr}}
-  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px}
+  .card{background:linear-gradient(145deg,rgba(20,34,53,.98),rgba(13,24,39,.98)); border:1px solid var(--line); border-radius:12px; padding:16px; box-shadow:0 14px 36px rgba(0,0,0,.12)}
   .card h2{margin:0 0 10px; font-size:12.5px; font-weight:700; color:var(--ink-2)}
   .card + .card{margin-top:12px}
-  #map{width:100%; height:520px; border-radius:11px; background:#080D15; z-index:1}
+  #map{width:100%; height:620px; border-radius:9px; background:#080D15; z-index:1}
   @media (max-width:900px){#map{height:400px}}
   .leaflet-container{background:#080D15; font-family:inherit}
   .leaflet-control-attribution{background:rgba(13,20,31,.85)!important; color:var(--ink-3)!important; font-size:10px}
   .leaflet-control-attribution a{color:var(--ink-2)!important}
-  .searchbar{display:flex; gap:6px; margin-bottom:10px}
+  .searchbar{display:flex; gap:8px; margin-bottom:10px}
   input[type=text]{flex:1; min-width:0; padding:9px 12px; font-family:inherit; font-size:13px;
     background:var(--panel-2); color:var(--ink); border:1px solid var(--line); border-radius:9px}
   input[type=text]:focus{outline:none; border-color:var(--info)}
-  button{padding:9px 12px; font-size:12.5px; font-weight:600; font-family:inherit;
+  button{padding:9px 12px; font-size:12.5px; font-weight:650; font-family:inherit;
     background:var(--panel-2); color:var(--ink-2); border:1px solid var(--line);
     border-radius:9px; cursor:pointer; transition:.15s; white-space:nowrap}
   button:hover:not(:disabled){border-color:var(--line-2); color:var(--ink)}
@@ -54,6 +54,13 @@
   .btn-main:hover:not(:disabled){background:#FFD070; border-color:#FFD070; color:#241701}
   .modes{display:flex; gap:6px; flex-wrap:wrap}
   .modes button{flex:1; min-width:78px}
+  .route-target,.draw-tools{display:none; grid-template-columns:1fr 1fr; gap:6px; margin-top:9px}
+  .route-target.on{display:grid}
+  .route-target button,.draw-tools button{padding:8px 10px}
+  .draw-tools{display:none; grid-template-columns:repeat(3,1fr)}
+  .draw-tools.on{display:grid}
+  .map-guidance{display:flex; gap:8px; align-items:center; padding:9px 11px; margin:0 0 10px; border:1px solid var(--line); border-radius:9px; color:var(--ink-2); font-size:12px; background:rgba(6,14,25,.35)}
+  .map-guidance b{color:var(--lamp); font-weight:700}
   .stats{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0}
   .stat{background:var(--panel-2); border-radius:10px; padding:9px 11px}
   .stat .k{font-size:11px; color:var(--ink-3)}
@@ -80,9 +87,11 @@
   .dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle}
   .status{font-size:12px; color:var(--ink-3); margin-top:9px; min-height:20px}
   .status.busy{color:var(--lamp)} .status.err{color:var(--warn)}
-  input[type=file]{font-size:11px; color:var(--ink-3); width:100%; margin-top:8px}
-  input[type=file]::file-selector-button{padding:6px 10px; margin-right:8px; font-family:inherit; font-size:11.5px;
-    background:var(--panel-2); color:var(--ink-2); border:1px solid var(--line); border-radius:7px; cursor:pointer}
+  input[type=file]{position:absolute; inline-size:1px; block-size:1px; opacity:0; pointer-events:none}
+  .upload{display:flex; align-items:center; gap:9px; width:100%; margin-top:9px; padding:7px 9px; border:1px dashed var(--line-2); border-radius:8px; cursor:pointer; color:var(--ink-3); font-size:11.5px}
+  .upload:hover{border-color:var(--info); color:var(--ink-2)}
+  .upload b{flex:none; border-radius:6px; padding:5px 8px; color:var(--ink-2); background:var(--panel-2); border:1px solid var(--line); font-weight:600}
+  .upload span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .verdict{border-radius:12px; padding:13px 15px; margin-bottom:12px; display:none}
   .verdict.on{display:block}
   .verdict .gr{font-size:22px; font-weight:800; letter-spacing:-.02em; line-height:1.25}
@@ -108,7 +117,8 @@
   .report-tools .note{margin:0; flex:1}
   .clear{padding:6px 8px; font-size:11px}
   .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0}
-  @media (max-width:560px){.wrap{padding:14px 10px 34px} header{align-items:flex-start; flex-wrap:wrap; gap:4px 10px}.tag{font-size:12px}.locale{margin-left:auto}.locale label{display:none} #map{height:360px}.searchbar{flex-wrap:wrap}.searchbar input{flex-basis:100%}.searchbar button{flex:1}.card{padding:12px}.report-tools{align-items:flex-start}}
+  @media (max-width:900px){#map{height:480px}}
+  @media (max-width:560px){.wrap{padding:14px 10px 34px} header{align-items:flex-start; flex-wrap:wrap; gap:4px 10px}.tag{font-size:12px}.locale{margin-left:auto}.locale label{display:none} #map{height:360px}.searchbar{flex-wrap:wrap}.searchbar input{flex-basis:100%}.searchbar button{flex:1}.card{padding:12px}.report-tools{align-items:flex-start}.draw-tools{grid-template-columns:1fr}.map-guidance{align-items:flex-start}}
   </style>
 </head>
 <body>
@@ -132,12 +142,13 @@
   <div class="sub" data-i18n="subtitle">CPTED(범죄예방 환경설계) 5원리로 밤길 위험도를 계산합니다.</div>
 
   <div class="grid">
-    <div class="card">
+    <div class="card map-card">
       <div class="searchbar">
         <input type="text" id="q" placeholder="동네 이름 — 예: 대전 둔산동, 논산 취암동" data-i18n-placeholder="searchPlaceholder" autocomplete="street-address">
         <button id="go-search" data-i18n="search">검색</button>
         <button id="go-here" data-i18n="myLocation">내 위치</button>
       </div>
+      <div class="map-guidance"><b data-i18n="mapStep">지도 사용</b><span data-i18n="mapGuidance">출발·도착을 선택하고, 안전 경로를 비교하세요.</span></div>
       <div id="map"></div>
       <div class="legend">
         <span><i style="background:var(--safe)"></i><span data-i18n="safeRoute">안전 경로</span></span>
@@ -158,6 +169,7 @@
         <div class="note" data-i18n="loadNote">화면 범위의 <b>도로·건물·가로등·상점·CCTV</b>를 OpenStreetMap에서 한 번에 가져옵니다.</div>
         <div class="alert" id="alert"></div>
         <input type="file" id="csv" accept=".csv,.txt">
+        <label class="upload" for="csv"><b data-i18n="chooseFile">파일 선택</b><span id="csv-name" data-i18n="noFile">선택된 파일 없음</span></label>
         <div class="note" data-i18n="csvNote">공공데이터포털 CSV(가로등, 여성안심지킴이집 등)를 넣어 보완할 수 있습니다. 위도·경도 열을 자동으로 찾습니다.</div>
       </div>
 
@@ -167,6 +179,15 @@
           <button data-mode="route" data-on="1" data-i18n="routeMode">출발·도착</button>
           <button data-mode="lamp" data-i18n="addLamp">가로등 추가</button>
           <button data-mode="report" data-i18n="riskReport">위험 신고</button>
+        </div>
+        <div class="route-target on" id="route-target">
+          <button data-target="start" data-on="1" data-i18n="setStart">출발 설정</button>
+          <button data-target="goal" data-i18n="setEnd">도착 설정</button>
+        </div>
+        <div class="draw-tools" id="draw-tools">
+          <button data-draw="tap" data-on="1" data-i18n="tapRoad">길 선택</button>
+          <button data-draw="follow" data-i18n="followRoad">길 따라 드래그</button>
+          <button data-draw="free" data-i18n="freeDraw">자유형 그리기</button>
         </div>
         <div class="verdict" id="verdict"></div>
         <div class="bars" id="bars"></div>
@@ -302,12 +323,14 @@ const I18N = {
 };
 
 Object.assign(I18N.ko, {
+  csvNote: "가로등·안심시설·사건/신고 공공 CSV를 추가할 수 있습니다. 위도·경도 열을 자동으로 찾으며, 파일명 또는 열 이름에 신고·사건·범죄·강도가 있으면 위험도에 반영합니다.",
   buildingFallback: "건물 데이터는 서버가 바빠 받지 못했습니다. 상점·정류장 밀도로 대신 계산했습니다. 정확도를 높이려면 잠시 뒤 다시 불러와 보세요.",
   lowLampData: "가로등 데이터는 {lamps}개뿐입니다. 건물 {buildings}동과 시설 {places}곳으로 주변 시선·밤에 사람 지표를 보완했습니다.",
   lampMode: "지도를 클릭하면 그 자리에 가로등이 추가됩니다.", reportMode: "위험하다고 느낀 길을 클릭해 선택하세요.", minutesExtra: "{minutes}분", metersExtra: "{meters}m", fallbackAction: "현장 확인 필요",
   routeStart: "출발", routeEnd: "도착"
 });
 Object.assign(I18N.en, {
+  csvNote: "Import public CSV data for streetlights, safety facilities, or incidents. Latitude and longitude columns are detected automatically; files or columns mentioning incident, crime, robbery, or police affect route risk.",
   buildingFallback: "Building data could not be loaded because the server is busy. Shop and bus-stop density is used instead; try again later for better accuracy.",
   lowLampData: "Only {lamps} mapped street lamps were found. Nearby eyes and activity use {buildings} buildings and {places} places as supporting data.",
   lampMode: "Click the map to add a street lamp at that point.", reportMode: "Click the road that feels unsafe.", minutesExtra: "{minutes} min", metersExtra: "{meters}m", fallbackAction: "On-site inspection needed",
@@ -366,6 +389,38 @@ I18N.fr = {
   reportEmpty: "Décrivez le problème.", reportSelectFirst: "Choisissez d’abord une route dans le mode « Signaler un risque ».", analyzing: "Analyse en cours…", reportDone: "Analyser et enregistrer", reportsCleared: "Les signalements enregistrés sur cet appareil ont été effacés.", clearConfirm: "Effacer tous les signalements enregistrés sur cet appareil ?", buildingFallback: "Les bâtiments n’ont pas pu être chargés car le serveur est occupé. La densité des commerces et arrêts est utilisée à la place ; réessayez plus tard pour une meilleure précision.", lowLampData: "Seuls {lamps} lampadaires cartographiés ont été trouvés. {buildings} bâtiments et {places} lieux servent de données complémentaires.", lampMode: "Cliquez sur la carte pour ajouter un lampadaire à cet endroit.", reportMode: "Cliquez sur la route qui vous semble dangereuse.", minutesExtra: "{minutes} min", metersExtra: "{meters}m", fallbackAction: "Une vérification sur place est nécessaire", routeStart: "Départ", routeEnd: "Arrivée"
 };
 
+Object.assign(I18N.ko, {
+  mapStep: "지도 사용", mapGuidance: "출발·도착을 선택하고, 안전 경로를 비교하세요.",
+  chooseFile: "파일 선택", noFile: "선택된 파일 없음",
+  setStart: "출발 설정", setEnd: "도착 설정", tapRoad: "길 선택", followRoad: "길 따라 드래그", freeDraw: "자유형 그리기",
+  startPlaced: "출발 지점을 도로 위에 설정했습니다.", endPlaced: "도착 지점을 도로 위에 설정했습니다.", noRoadPoint: "가까운 도로를 찾지 못했습니다. 도로 가까이를 선택해 주세요.",
+  reportDrawStart: "지도에서 드래그하거나 그려 위험 구간을 선택하세요.", reportSelectedMany: "위험 구간 {count}곳을 선택했습니다. 아래에 상황을 적어 보세요.",
+  incidentKind: "사건 신고",
+  locatingDefault: "현재 위치를 확인해 주변 지도를 준비하는 중…", locatedDefault: "현재 위치 주변을 불러왔습니다.", locationDefaultFail: "위치 권한을 허용하면 현재 위치 주변에서 시작합니다.",
+  wideLoading: "넓은 범위를 나누어 불러오는 중 ({current}/{total})"
+});
+Object.assign(I18N.en, {
+  mapStep: "Map controls", mapGuidance: "Set a start and destination, then compare safer routes.",
+  chooseFile: "Choose file", noFile: "No file selected",
+  setStart: "Set start", setEnd: "Set destination", tapRoad: "Select road", followRoad: "Drag along roads", freeDraw: "Freehand draw",
+  startPlaced: "Start set on the road.", endPlaced: "Destination set on the road.", noRoadPoint: "No road was found nearby. Select closer to a road.",
+  reportDrawStart: "Drag or draw on the map to select a risky section.", reportSelectedMany: "Selected {count} risky sections. Describe the situation below.",
+  incidentKind: "incident reports",
+  locatingDefault: "Finding your location and preparing the nearby map…", locatedDefault: "Loaded the area around your location.", locationDefaultFail: "Allow location access to start around your current position.",
+  wideLoading: "Loading a wide area in sections ({current}/{total})"
+});
+Object.assign(I18N.fr, {
+  csvNote: "Importez un CSV public pour les lampadaires, lieux sûrs ou incidents. Les colonnes latitude et longitude sont détectées automatiquement ; les fichiers ou colonnes mentionnant incident, crime, vol ou police influencent le risque du trajet.",
+  mapStep: "Utiliser la carte", mapGuidance: "Choisissez un départ et une arrivée, puis comparez les itinéraires.",
+  chooseFile: "Choisir un fichier", noFile: "Aucun fichier sélectionné",
+  setStart: "Définir le départ", setEnd: "Définir l’arrivée", tapRoad: "Choisir une route", followRoad: "Glisser le long des routes", freeDraw: "Dessiner librement",
+  startPlaced: "Le départ est placé sur la route.", endPlaced: "L’arrivée est placée sur la route.", noRoadPoint: "Aucune route à proximité. Choisissez un point plus près d’une route.",
+  reportDrawStart: "Glissez ou dessinez sur la carte pour choisir une zone à risque.", reportSelectedMany: "{count} sections à risque sont sélectionnées. Décrivez la situation ci-dessous.",
+  incidentKind: "signalements d’incident",
+  locatingDefault: "Recherche de votre position et préparation de la carte…", locatedDefault: "La zone autour de votre position est chargée.", locationDefaultFail: "Autorisez la position pour démarrer autour de votre emplacement.",
+  wideLoading: "Chargement d’une vaste zone par sections ({current}/{total})"
+});
+
 let language = "ko";
 const LANG_LOCALE = { ko: "ko", en: "en", ja: "ja", zh: "zh-CN", vi: "vi", es: "es", fr: "fr" };
 const SUPPORTED_LANGUAGES = new Set(Object.keys(I18N));
@@ -402,6 +457,7 @@ function applyLanguage() {
   document.querySelectorAll("[data-i18n-placeholder]").forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
   $("language").setAttribute("aria-label", t("languageLabel"));
   $("ai-count").textContent = $("ai-in").value.length + " / 500";
+  if (csvFileName) $("csv-name").textContent = csvFileName;
   if (!D) say(t("initialStatus"));
   else render();
 }
@@ -429,8 +485,10 @@ const CLASS_SCORE = {
 };
 
 const $ = id => document.getElementById(id);
-let map, R = {}, D = null, t0 = 0;
-let mode = "route", selEdge = -1, start = -1, goal = -1;
+let map, R = {}, D = null, t0 = 0, csvFileName = "";
+let mode = "route", selEdge = -1, start = null, goal = null;
+let routeTarget = "start", drawMode = "tap", selectedEdges = new Set();
+let drawing = null, ignoreMapClickUntil = 0;
 
 function setActiveChoice(container, active) {
   container.querySelectorAll("button").forEach(button => {
@@ -446,6 +504,8 @@ function syncChoiceAccessibility(container) {
 }
 syncChoiceAccessibility($("modes"));
 syncChoiceAccessibility($("presets"));
+syncChoiceAccessibility($("route-target"));
+syncChoiceAccessibility($("draw-tools"));
 
 /* ── 지도 ── */
 map = L.map("map", { preferCanvas: true }).setView([36.3504, 127.3845], 16);
@@ -457,6 +517,7 @@ R.roads = L.layerGroup().addTo(map);
 R.pois  = L.layerGroup().addTo(map);
 R.route = L.layerGroup().addTo(map);
 R.marks = L.layerGroup().addTo(map);
+R.draw  = L.layerGroup().addTo(map);
 
 const say = (m, k) => { const e = $("status"); e.textContent = m; e.className = "status" + (k ? " " + k : ""); };
 const sayT = (key, values, kind) => say(t(key, values), kind);
@@ -547,13 +608,48 @@ async function ovp(q, labelKey, silent = false) {
   throw new Error(last || "모든 서버 실패");
 }
 
+function splitMapBounds(bounds, targetKm2 = 2.5, maxTiles = 24) {
+  const south = bounds.getSouth(), west = bounds.getWest(), north = bounds.getNorth(), east = bounds.getEast();
+  const height = dist(south, west, north, west) / 1000;
+  const width = dist(south, west, south, east) / 1000;
+  let rows = Math.max(1, Math.ceil(height / Math.sqrt(targetKm2)));
+  let cols = Math.max(1, Math.ceil(width / Math.sqrt(targetKm2)));
+  while (rows * cols > maxTiles) { if (cols >= rows) cols--; else rows--; }
+  const tiles = [];
+  for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) {
+    const s = south + (north - south) * row / rows, n = south + (north - south) * (row + 1) / rows;
+    const w = west + (east - west) * col / cols, e = west + (east - west) * (col + 1) / cols;
+    tiles.push([s, w, n, e].map(value => value.toFixed(5)).join(","));
+  }
+  return tiles;
+}
+function mergeOverpass(results) {
+  const unique = new Map();
+  for (const result of results) for (const element of result?.elements || []) unique.set(element.type + ":" + element.id, element);
+  return { elements: [...unique.values()] };
+}
+async function loadTiles(tiles, makeQuery, labelKey, silent, version) {
+  let cursor = 0, complete = 0; const results = [], workers = [];
+  const worker = async () => {
+    for (;;) {
+      const index = cursor++; if (index >= tiles.length) return;
+      if (!silent && tiles.length > 1) sayT("wideLoading", { current: complete + 1, total: tiles.length }, "busy");
+      try { results[index] = await ovp(makeQuery(tiles[index]), labelKey, silent); } catch {}
+      complete++;
+      if (version !== loadVersion) return;
+    }
+  };
+  for (let i = 0; i < Math.min(2, tiles.length); i++) workers.push(worker());
+  await Promise.all(workers);
+  const merged = mergeOverpass(results);
+  if (!merged.elements.length) throw new Error("모든 구역의 데이터 요청이 실패했습니다");
+  return merged;
+}
+
 let loadVersion = 0;
 async function loadArea() {
   const b = map.getBounds();
-  const bb = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].map(v => v.toFixed(5)).join(",");
-  const km2 = dist(b.getSouth(), b.getWest(), b.getNorth(), b.getWest()) / 1000 *
-              dist(b.getSouth(), b.getWest(), b.getSouth(), b.getEast()) / 1000;
-  if (km2 > 6) { sayT("tooLarge", { area: km2.toFixed(1) }, "err"); return; }
+  const tiles = splitMapBounds(b);
 
   const version = ++loadVersion;
   $("load").disabled = true;
@@ -561,11 +657,11 @@ async function loadArea() {
 
   try {
     // 필수: 도로망
-    const qRoad = "[out:json][timeout:12];way[\"highway\"~\"" + WALKABLE + "\"]" +
+    const qRoad = bb => "[out:json][timeout:12];way[\"highway\"~\"" + WALKABLE + "\"]" +
                   "[\"access\"!~\"^(private|no)$\"](" + bb + ");out body;>;out skel qt;";
     // 가벼움: 가로등·CCTV·상점 (점 데이터라 빠름). 도로가 준비된 뒤
     // 조용히 보강해, 필수 경로 요청과 공용 서버 자원을 경쟁하지 않습니다.
-    const qPoi = "[out:json][timeout:12];(" +
+    const qPoi = bb => "[out:json][timeout:12];(" +
       'node["highway"="street_lamp"](' + bb + ");" +
       'node["man_made"="surveillance"](' + bb + ");" +
       'node["shop"~"^(convenience|supermarket)$"](' + bb + ");" +
@@ -573,7 +669,7 @@ async function loadArea() {
       'node["highway"="bus_stop"](' + bb + ");" +
       ");out body qt;";
 
-    const rd = await ovp(qRoad, "roadLoading");
+    const rd = await loadTiles(tiles, qRoad, "roadLoading", false, version);
     if (version !== loadVersion) return;
     const tNet = performance.now();
 
@@ -582,7 +678,7 @@ async function loadArea() {
     build(rd, { elements: [] }, false);
     const tCalc = performance.now();
 
-    start = goal = -1; selEdge = -1;
+    start = goal = null; selEdge = -1; selectedEdges.clear(); R.draw.clearLayers();
     render();
 
     $("perf").textContent =
@@ -594,7 +690,7 @@ async function loadArea() {
 
     // 시설 데이터는 준비되는 즉시 현재 도로망에 합쳐서 다시 계산합니다.
     // 실패해도 이미 표시한 경로는 그대로 사용할 수 있습니다.
-    void ovp(qPoi, "poiLoading", true).then(data => {
+    void loadTiles(tiles, qPoi, "poiLoading", true, version).then(data => {
       if (!data || version !== loadVersion || !D) return;
       enrichFacilities(data.elements);
     }).catch(() => {});
@@ -741,12 +837,13 @@ function indicators() {
     const t = etag[i];
 
     // ① 조도 — 거리 역제곱 법칙 E = Σ k/(d²+r₀²)
+    const lampRadius = 55; // 보행로 조도에 실질적으로 닿는 범위만 반영
     let E = 0;
     for (const j of D.lamps.near(la, lo)) {
       const p = D.lamps.pts[j], d = dist(la, lo, p.lat, p.lon);
-      E += 9000 / (d * d + 800);
+      if (d <= lampRadius) E += 1 - (d / lampRadius) ** 2;
     }
-    let light = clamp01(E / 4);
+    let light = clamp01(E / 1.45);
     if (t.lit === "yes") light = Math.max(light, 0.78);
     else if (t.lit === "no") light = Math.min(light, 0.12);
 
@@ -811,48 +908,99 @@ class Heap {
   }
 }
 
-/* ── 최단 경로: 비용 = 거리 × (1 + α·(1 − 안전점수)) ── */
-function findPath(src, dst, alpha) {
-  const { n, head, adjTo, adjE, elen, score } = D;
+/* ── 임의의 지도 좌표를 도로 선분에 투영한 뒤 경로를 찾습니다 ── */
+const edgeCost = (edge, alpha) => D.elen[edge] * (1 + alpha * (1 - D.score[edge]));
+function pointOnEdge(edge, ratio) {
+  const a = D.ea[edge], b = D.eb[edge];
+  return { edge, ratio, a, b,
+    lat: D.lat[a] + (D.lat[b] - D.lat[a]) * ratio,
+    lon: D.lon[a] + (D.lon[b] - D.lon[a]) * ratio };
+}
+function projectOnSegment(lat, lon, a, b) {
+  const scale = 111320 * Math.cos(((D.lat[a] + D.lat[b] + lat) / 3) * Math.PI / 180);
+  const ax = D.lon[a] * scale, ay = D.lat[a] * 111320;
+  const bx = D.lon[b] * scale, by = D.lat[b] * 111320;
+  const px = lon * scale, py = lat * 111320;
+  const dx = bx - ax, dy = by - ay, denom = dx * dx + dy * dy;
+  const ratio = denom ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / denom)) : 0;
+  const pLat = D.lat[a] + (D.lat[b] - D.lat[a]) * ratio;
+  const pLon = D.lon[a] + (D.lon[b] - D.lon[a]) * ratio;
+  return { ratio, lat: pLat, lon: pLon, distance: dist(lat, lon, pLat, pLon) };
+}
+function snapRoad(lat, lon) {
+  const seen = new Set(); let best = null;
+  for (const node of D.nodeGrid.near(lat, lon)) {
+    for (let p = D.head[node]; p < D.head[node + 1]; p++) {
+      const edge = D.adjE[p]; if (seen.has(edge)) continue; seen.add(edge);
+      const point = projectOnSegment(lat, lon, D.ea[edge], D.eb[edge]);
+      if (!best || point.distance < best.distance) best = { edge, ...point };
+    }
+  }
+  return best && best.distance <= 500 ? { ...best, a: D.ea[best.edge], b: D.eb[best.edge] } : null;
+}
+function makeRoute(points, segments) { return { points, segments }; }
+function findRoute(from, to, alpha) {
+  if (!from || !to) return null;
+  if (from.edge === to.edge) {
+    const ratio = Math.abs(from.ratio - to.ratio);
+    return makeRoute([[from.lat, from.lon], [to.lat, to.lon]], [{ edge: from.edge, ratio }]);
+  }
+
+  const { n, head, adjTo, adjE } = D;
   const dv = new Float64Array(n).fill(Infinity);
   const pv = new Int32Array(n).fill(-1);
   const done = new Uint8Array(n);
+  const seeds = new Map([[from.a, from.ratio], [from.b, 1 - from.ratio]]);
+  const targets = new Map([[to.a, to.ratio], [to.b, 1 - to.ratio]]);
   const h = new Heap(1024);
-  dv[src] = 0; h.push(0, src);
+  for (const [node, ratio] of seeds) {
+    const cost = edgeCost(from.edge, alpha) * ratio;
+    if (cost < dv[node]) { dv[node] = cost; h.push(cost, node); }
+  }
+  let best = null;
   while (h.s) {
-    const [d, u] = h.pop();
-    if (done[u]) continue;
-    done[u] = 1;
-    if (u === dst) break;
-    for (let p = head[u]; p < head[u + 1]; p++) {
-      const v = adjTo[p], e = adjE[p];
-      const nd = d + elen[e] * (1 + alpha * (1 - score[e]));
-      if (nd < dv[v]) { dv[v] = nd; pv[v] = u; h.push(nd, v); }
+    const [cost, node] = h.pop();
+    if (done[node]) continue;
+    if (best && cost >= best.cost) break;
+    done[node] = 1;
+    if (targets.has(node)) {
+      const finalRatio = targets.get(node);
+      const total = cost + edgeCost(to.edge, alpha) * finalRatio;
+      if (!best || total < best.cost) best = { cost: total, node, finalRatio };
+    }
+    for (let p = head[node]; p < head[node + 1]; p++) {
+      const next = adjTo[p], edge = adjE[p], nextCost = cost + edgeCost(edge, alpha);
+      if (nextCost < dv[next]) { dv[next] = nextCost; pv[next] = node; h.push(nextCost, next); }
     }
   }
-  if (!done[dst]) return null;
-  const path = []; for (let c = dst; c !== -1; c = pv[c]) path.unshift(c);
-  return path;
+  if (!best) return null;
+  const nodes = [];
+  for (let node = best.node; node !== -1; node = pv[node]) nodes.unshift(node);
+  const segments = [{ edge: from.edge, ratio: seeds.get(nodes[0]) }];
+  for (let i = 0; i < nodes.length - 1; i++) segments.push({ edge: edgeOf(nodes[i], nodes[i + 1]), ratio: 1 });
+  segments.push({ edge: to.edge, ratio: best.finalRatio });
+  const points = [[from.lat, from.lon], ...nodes.map(node => [D.lat[node], D.lon[node]]), [to.lat, to.lon]];
+  return makeRoute(points, segments.filter(segment => segment.edge >= 0 && segment.ratio > 0.000001));
 }
 
 function edgeOf(u, v) {
   for (let p = D.head[u]; p < D.head[u + 1]; p++) if (D.adjTo[p] === v) return D.adjE[p];
   return -1;
 }
-function info(path) {
+function info(route) {
   let len = 0, sc = 0, dark = 0; const f = new Float64Array(F);
-  for (let i = 0; i < path.length - 1; i++) {
-    const e = edgeOf(path[i], path[i + 1]); if (e < 0) continue;
-    len += D.elen[e]; sc += D.score[e];
+  for (const segment of route.segments) {
+    const e = segment.edge, meters = D.elen[e] * segment.ratio;
+    len += meters; sc += D.score[e] * meters;
     if (D.score[e] < 0.35) dark++;
-    for (let k = 0; k < F; k++) f[k] += D.ind[e * F + k];
+    for (let k = 0; k < F; k++) f[k] += D.ind[e * F + k] * meters;
   }
-  const c = Math.max(1, path.length - 1);
+  const c = Math.max(1, len);
   for (let k = 0; k < F; k++) f[k] /= c;
   return { meters: Math.round(len), minutes: Math.max(1, Math.round(len / WALK)),
            score: Math.round(sc / c * 100), dark, f };
 }
-const ll = path => path.map(i => [D.lat[i], D.lon[i]]);
+const ll = route => route.points;
 
 /* ── 그리기: 색 8단계로 묶어 레이어 8개만 ── */
 const RAMP = ["#2A3446","#33435C","#3C5470","#456783","#4E7B94","#5A93A2","#69AEA8","#7CCBA6"];
@@ -867,9 +1015,9 @@ function render() {
   buckets.forEach((segs, b) => {
     if (segs.length) R.roads.addLayer(L.polyline(segs, { color: RAMP[b], weight: 4, opacity: .95, interactive: false }));
   });
-  if (selEdge >= 0) R.roads.addLayer(L.polyline(
-    [[D.lat[D.ea[selEdge]], D.lon[D.ea[selEdge]]], [D.lat[D.eb[selEdge]], D.lon[D.eb[selEdge]]]],
-    { color: "#6FA8FF", weight: 8, interactive: false }));
+  for (const edge of selectedEdges) R.roads.addLayer(L.polyline(
+    [[D.lat[D.ea[edge]], D.lon[D.ea[edge]]], [D.lat[D.eb[edge]], D.lon[D.eb[edge]]]],
+    { color: "#6FA8FF", weight: 8, opacity: .85, interactive: false }));
 
   const dot = (arr, color, r) => arr.forEach(p =>
     R.pois.addLayer(L.circleMarker([p.lat, p.lon], { radius: r, stroke: false, fillColor: color, fillOpacity: .9, interactive: false })));
@@ -882,9 +1030,9 @@ function render() {
       [(D.lat[D.ea[i]] + D.lat[D.eb[i]]) / 2, (D.lon[D.ea[i]] + D.lon[D.eb[i]]) / 2],
       { radius: 5, stroke: false, fillColor: "#FF4D4D", fillOpacity: .95, interactive: false }));
   }
-  if (start >= 0) R.marks.addLayer(L.circleMarker([D.lat[start], D.lon[start]],
+  if (start) R.marks.addLayer(L.circleMarker([start.lat, start.lon],
     { radius: 8, color: "#0D141F", weight: 2.5, fillColor: "#6FA8FF", fillOpacity: 1 }).bindTooltip(t("routeStart")));
-  if (goal >= 0) R.marks.addLayer(L.circleMarker([D.lat[goal], D.lon[goal]],
+  if (goal) R.marks.addLayer(L.circleMarker([goal.lat, goal.lon],
     { radius: 8, color: "#0D141F", weight: 2.5, fillColor: "#3DDC97", fillOpacity: 1 }).bindTooltip(t("routeEnd")));
   routes();
 }
@@ -927,11 +1075,11 @@ function reason(f) {
 function routes() {
   R.route.clearLayers();
   const V = $("verdict"), B = $("bars");
-  if (!D || start < 0 || goal < 0) { V.className = "verdict"; B.className = "bars"; return; }
+  if (!D || !start || !goal) { V.className = "verdict"; B.className = "bars"; return; }
 
   const startedAt = performance.now();
-  const pF = findPath(start, goal, 0);
-  const pS = findPath(start, goal, +$("alpha").value);
+  const pF = findRoute(start, goal, 0);
+  const pS = findRoute(start, goal, +$("alpha").value);
   const ms = performance.now() - startedAt;
   if (!pF || !pS) { V.className = "verdict"; B.className = "bars"; sayT("disconnected", {}, "err"); return; }
 
@@ -975,18 +1123,45 @@ function snapNode(la, lo) {
   return best;
 }
 function snapEdge(la, lo) {
-  const nd = snapNode(la, lo); if (nd < 0) return -1;
-  let best = -1, bd = Infinity;
-  for (let p = D.head[nd]; p < D.head[nd + 1]; p++) {
-    const e = D.adjE[p];
-    const d = dist(la, lo, (D.lat[D.ea[e]] + D.lat[D.eb[e]]) / 2, (D.lon[D.ea[e]] + D.lon[D.eb[e]]) / 2);
-    if (d < bd) { bd = d; best = e; }
-  }
-  return best;
+  return snapRoad(la, lo)?.edge ?? -1;
 }
 
-/* ── 지도 클릭 ── */
+function setReportEdges(edges) {
+  selectedEdges = new Set([...edges].filter(edge => edge >= 0));
+  selEdge = selectedEdges.values().next().value ?? -1;
+  render();
+  if (selEdge < 0) sayT("noRoadNearby", {}, "err");
+  else if (selectedEdges.size === 1) sayT("selectRoad");
+  else sayT("reportSelectedMany", { count: selectedEdges.size });
+}
+function completeDrawing() {
+  if (!drawing) return;
+  const { kind, points, edges } = drawing;
+  if (kind === "free") for (const point of points) {
+    const hit = snapRoad(point.lat, point.lng);
+    if (hit && hit.distance <= 60) edges.add(hit.edge);
+  }
+  map.dragging.enable();
+  ignoreMapClickUntil = Date.now() + 250;
+  drawing = null;
+  setReportEdges(edges);
+}
+function drawPoint(ev) {
+  if (!drawing) return;
+  const point = ev.latlng, previous = drawing.points.at(-1);
+  if (previous && dist(previous.lat, previous.lng, point.lat, point.lng) < 6) return;
+  drawing.points.push(point);
+  if (drawing.kind === "follow") {
+    const hit = snapRoad(point.lat, point.lng);
+    if (hit) drawing.edges.add(hit.edge);
+  }
+  R.draw.clearLayers();
+  R.draw.addLayer(L.polyline(drawing.points, { color: "#75A9FF", weight: 4, opacity: .9, dashArray: drawing.kind === "free" ? "5 7" : null, interactive: false }));
+}
+
+/* ── 지도 클릭 / 신고 구간 그리기 ── */
 map.on("click", ev => {
+  if (Date.now() < ignoreMapClickUntil) return;
   const { lat, lng } = ev.latlng;
   if (!D) { sayT("mapNotLoaded", {}, "err"); return; }
   if (mode === "lamp") {
@@ -995,16 +1170,24 @@ map.on("click", ev => {
     indicators(); recombine(); render();
     sayT("lampAdded", { count: D.lamps.pts.length });
   } else if (mode === "report") {
-    selEdge = snapEdge(lat, lng);
-    render();
-    selEdge >= 0 ? sayT("selectRoad") : sayT("noRoadNearby", {}, "err");
+    if (drawMode !== "tap") return;
+    const hit = snapRoad(lat, lng);
+    setReportEdges(hit ? [hit.edge] : []);
   } else {
-    const id = snapNode(lat, lng);
-    if (id < 0) { sayT("noWalkableNearby", {}, "err"); return; }
-    if (start < 0 || (start >= 0 && goal >= 0)) { start = id; goal = -1; } else goal = id;
+    const hit = snapRoad(lat, lng);
+    if (!hit) { sayT("noRoadPoint", {}, "err"); return; }
+    if (routeTarget === "start") { start = hit; sayT("startPlaced"); }
+    else { goal = hit; sayT("endPlaced"); }
     render();
   }
 });
+map.on("mousedown", ev => {
+  if (!D || mode !== "report" || drawMode === "tap") return;
+  drawing = { kind: drawMode, points: [], edges: new Set() };
+  map.dragging.disable(); R.draw.clearLayers(); drawPoint(ev);
+});
+map.on("mousemove", drawPoint);
+map.on("mouseup", completeDrawing);
 
 /* ── 검색 / 내 위치 ── */
 async function geocode(q) {
@@ -1013,7 +1196,7 @@ async function geocode(q) {
     const d = await r.json();
     if (r.ok && d.결과?.length) return { hit: d.결과[0], via: "백엔드" };
   } catch {}
-  const r2 = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=" + LANG_LOCALE[language] + "&countrycodes=kr&q=" + encodeURIComponent(q));
+  const r2 = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=" + LANG_LOCALE[language] + "&q=" + encodeURIComponent(q));
   if (!r2.ok) throw new Error("검색 서버 응답 " + r2.status);
   const d2 = await r2.json();
   if (!d2.length) throw new Error("그런 곳을 찾지 못했습니다");
@@ -1038,6 +1221,18 @@ $("go-here").addEventListener("click", () => {
     p => { map.setView([p.coords.latitude, p.coords.longitude], 16); sayT("located"); },
     () => sayT("locationFail", {}, "err"));
 });
+function startNearCurrentLocation() {
+  if (!navigator.geolocation) return;
+  sayT("locatingDefault", {}, "busy");
+  navigator.geolocation.getCurrentPosition(
+    position => {
+      map.setView([position.coords.latitude, position.coords.longitude], 16);
+      loadArea().then(() => { if (D) sayT("locatedDefault"); });
+    },
+    () => sayT("locationDefaultFail"),
+    { enableHighAccuracy: false, timeout: 9000, maximumAge: 300000 }
+  );
+}
 
 /* ── 공공데이터 CSV ── */
 function parseCsv(text) {
@@ -1057,34 +1252,44 @@ function parseCsv(text) {
   return rows;
 }
 function importCsv(buffer, fileName) {
-  let rows, iLat = -1, iLon = -1;
+  let rows, headers = [], iLat = -1, iLon = -1, iLevel = -1;
   for (const encoding of ["utf-8", "euc-kr"]) {
     try {
       rows = parseCsv(new TextDecoder(encoding).decode(buffer));
       if (rows.length < 2) continue;
       const head = rows[0].map(s => s.replace(/["\s\uFEFF]/g, "").toLowerCase());
       const find = keys => head.findIndex(h => keys.some(key => h.includes(key)));
-      iLat = find(["위도", "lat", "latitude"]); iLon = find(["경도", "lon", "lng", "longitude"]);
-      if (iLat >= 0 && iLon >= 0) break;
+       iLat = find(["위도", "lat", "latitude"]); iLon = find(["경도", "lon", "lng", "longitude"]);
+       iLevel = find(["심각", "위험", "severity", "risk", "level"]);
+      if (iLat >= 0 && iLon >= 0) { headers = head; break; }
     } catch {}
   }
   if (!rows || rows.length < 2) { sayT("csvEmpty", {}, "err"); return; }
   if (iLat < 0 || iLon < 0) { sayT("csvNoCoords", {}, "err"); return; }
-  const isRef = /지킴이|편의점|안심|shelter|refuge|safe/i.test(fileName);
+  const isIncident = /신고|사건|범죄|강도|crime|incident|robbery|police/i.test(fileName + " " + headers.join(" "));
+  const isRef = !isIncident && /지킴이|편의점|안심|shelter|refuge|safe/i.test(fileName);
   let count = 0;
   for (const row of rows.slice(1)) {
     const lat = Number.parseFloat(row[iLat]), lon = Number.parseFloat(row[iLon]);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < 33 || lat > 39 || lon < 124 || lon > 132) continue;
-    (isRef ? D.ref.pts : D.lamps.pts).push({ lat, lon, src: "csv" }); count++;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) continue;
+    if (isIncident) {
+      const edge = snapEdge(lat, lon); if (edge < 0) continue;
+      const level = Math.min(3, Math.max(1, Number.parseFloat(row[iLevel]) || 2));
+      D.reports[edge].push({ level, type: "치안", source: "csv" }); D.pen[edge] += 0.10 * level;
+    } else (isRef ? D.ref.pts : D.lamps.pts).push({ lat, lon, src: "csv" });
+    count++;
   }
   D.lamps = new Grid(D.lamps.pts, 0.001);
   D.ref = new Grid(D.ref.pts, 0.003);
   indicators(); recombine(); render();
-  sayT("csvAdded", { count, kind: t(isRef ? "shelterKind" : "lampKind") });
+  sayT("csvAdded", { count, kind: t(isIncident ? "incidentKind" : isRef ? "shelterKind" : "lampKind") });
   $("alert").className = "alert";
 }
 $("csv").addEventListener("change", ev => {
-  const f = ev.target.files[0]; if (!f || !D) { if (!D) sayT("mapNotLoaded", {}, "err"); return; }
+  const f = ev.target.files[0]; if (!f) return;
+  csvFileName = f.name;
+  $("csv-name").textContent = csvFileName;
+  if (!D) { sayT("mapNotLoaded", {}, "err"); return; }
   const rd = new FileReader();
   rd.onload = () => importCsv(rd.result, f.name);
   rd.readAsArrayBuffer(f);
@@ -1093,10 +1298,26 @@ $("csv").addEventListener("change", ev => {
 /* ── 조작 ── */
 $("modes").addEventListener("click", ev => {
   const b = ev.target.closest("button"); if (!b) return;
-  mode = b.dataset.mode; selEdge = -1;
+  if (drawing) completeDrawing();
+  mode = b.dataset.mode; selEdge = -1; selectedEdges.clear(); R.draw.clearLayers();
   setActiveChoice($("modes"), b);
+  $("route-target").classList.toggle("on", mode === "route");
+  $("draw-tools").classList.toggle("on", mode === "report");
   sayT(mode === "route" ? "choosePoints" : mode === "lamp" ? "lampMode" : "reportMode");
   render();
+});
+$("route-target").addEventListener("click", ev => {
+  const b = ev.target.closest("button"); if (!b) return;
+  routeTarget = b.dataset.target;
+  setActiveChoice($("route-target"), b);
+  sayT("choosePoints");
+});
+$("draw-tools").addEventListener("click", ev => {
+  const b = ev.target.closest("button"); if (!b) return;
+  drawMode = b.dataset.draw;
+  setActiveChoice($("draw-tools"), b);
+  R.draw.clearLayers();
+  sayT(drawMode === "tap" ? "reportMode" : "reportDrawStart");
 });
 $("alpha").addEventListener("input", () => { $("alpha-v").textContent = (+$("alpha").value).toFixed(1); routes(); });
 [0, 1, 2, 3, 4].forEach(k => $("w" + k).addEventListener("input", () => {
@@ -1171,7 +1392,7 @@ function renderReportResult(out, result, engine) {
 $("ai-go").addEventListener("click", async () => {
   const btn = $("ai-go"), out = $("ai-out"), text = $("ai-in").value.trim();
   if (!text) { alert(t("reportEmpty")); return; }
-  if (selEdge < 0) { alert(t("reportSelectFirst")); return; }
+  if (!selectedEdges.size) { alert(t("reportSelectFirst")); return; }
   btn.disabled = true; btn.textContent = t("analyzing");
   let r, engine;
   try {
@@ -1179,11 +1400,13 @@ $("ai-go").addEventListener("click", async () => {
     catch { r = fallback(text); engine = t("ruleEngine"); }
     const level = Math.min(3, Math.max(1, Number(r.심각도) || 1));
     const type = I18N.ko.type[r.유형] ? r.유형 : "기타";
-    D.reports[selEdge].push({ level, type });
-    D.pen[selEdge] += 0.10 * level;
-    const lat = (D.lat[D.ea[selEdge]] + D.lat[D.eb[selEdge]]) / 2;
-    const lon = (D.lon[D.ea[selEdge]] + D.lon[D.eb[selEdge]]) / 2;
-    saveReport({ lat, lon, level, type, createdAt: Date.now() });
+    for (const edge of [...selectedEdges].slice(0, 160)) {
+      D.reports[edge].push({ level, type });
+      D.pen[edge] += 0.10 * level;
+      const lat = (D.lat[D.ea[edge]] + D.lat[D.eb[edge]]) / 2;
+      const lon = (D.lon[D.ea[edge]] + D.lon[D.eb[edge]]) / 2;
+      saveReport({ lat, lon, level, type, createdAt: Date.now() });
+    }
     recombine(); render();
     renderReportResult(out, { ...r, 유형: type, 심각도: level }, engine);
     $("ai-in").value = ""; $("ai-count").textContent = "0 / 500";
@@ -1193,6 +1416,7 @@ $("ai-go").addEventListener("click", async () => {
 });
 
 applyLanguage();
+startNearCurrentLocation();
 </script>
 </body>
 </html>

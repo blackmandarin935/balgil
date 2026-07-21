@@ -413,6 +413,10 @@ const MIRRORS = [
   "https://overpass.osm.jp/api/interpreter"
 ];
 let mirror = 0;
+const OVP_TIMEOUT = 12000;
+const OVP_CACHE_TTL = 10 * 60 * 1000;
+const OVP_CACHE_LIMIT = 18;
+const ovpCache = new Map();
 const WALK = 67;                     // m/분
 const F = 5;                          // 지표 개수
 const WALKABLE = "^(residential|living_street|unclassified|tertiary|tertiary_link|secondary|" +
@@ -501,35 +505,49 @@ class Grid {
   }
 }
 
-/* ── Overpass: 서버가 죽어 있으면 다음 서버로 ──────────────
-   504(시간 초과) 429(너무 잦음) 503(과부하)는 서버 사정이므로
-   같은 요청을 다른 서버에 그대로 보냅니다.                    */
-async function ovp(q, labelKey) {
+/* ── Overpass: 짧게 실패하고 다른 서버로, 최근 결과는 재사용 ── */
+function cacheOverpass(q, data) {
+  ovpCache.set(q, { data, savedAt: Date.now() });
+  while (ovpCache.size > OVP_CACHE_LIMIT) ovpCache.delete(ovpCache.keys().next().value);
+}
+async function ovp(q, labelKey, silent = false) {
+  const cached = ovpCache.get(q);
+  if (cached && Date.now() - cached.savedAt < OVP_CACHE_TTL) return cached.data;
+
   let last = "";
   for (let i = 0; i < MIRRORS.length; i++) {
     const at = (mirror + i) % MIRRORS.length;
-    const host = MIRRORS[at].split("/")[2].split(".")[1] || MIRRORS[at].split("/")[2];
-    if (labelKey) sayT("dataLoading", { label: t(labelKey), current: i + 1, total: MIRRORS.length, host }, "busy");
+    if (!silent && labelKey) sayT("dataLoading", { label: t(labelKey), current: i + 1, total: MIRRORS.length }, "busy");
+    let timer;
     try {
       const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), 45000);
+      timer = setTimeout(() => ctl.abort(), OVP_TIMEOUT);
       const r = await fetch(MIRRORS[at], {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: "data=" + encodeURIComponent(q),
         signal: ctl.signal
       });
-      clearTimeout(timer);
-      if (r.ok) { mirror = at; return r.json(); }     // 성공한 서버를 기억해 둔다
+      if (r.ok) {
+        const data = await r.json();
+        mirror = at;
+        cacheOverpass(q, data);
+        return data;
+      }
       last = "응답 " + r.status;
       if (r.status !== 504 && r.status !== 503 && r.status !== 429) break;
     } catch (e) {
       last = e.name === "AbortError" ? "시간 초과" : e.message;
+    } finally {
+      clearTimeout(timer);
     }
   }
+  // 이미 이 탭에서 받아 둔 같은 영역이라면, 갱신이 실패해도 마지막 정상 데이터를 씁니다.
+  if (cached) return cached.data;
   throw new Error(last || "모든 서버 실패");
 }
 
+let loadVersion = 0;
 async function loadArea() {
   const b = map.getBounds();
   const bb = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].map(v => v.toFixed(5)).join(",");
@@ -537,15 +555,17 @@ async function loadArea() {
               dist(b.getSouth(), b.getWest(), b.getSouth(), b.getEast()) / 1000;
   if (km2 > 6) { sayT("tooLarge", { area: km2.toFixed(1) }, "err"); return; }
 
+  const version = ++loadVersion;
   $("load").disabled = true;
   t0 = performance.now();
 
   try {
     // 필수: 도로망
-    const qRoad = "[out:json][timeout:50];way[\"highway\"~\"" + WALKABLE + "\"]" +
+    const qRoad = "[out:json][timeout:12];way[\"highway\"~\"" + WALKABLE + "\"]" +
                   "[\"access\"!~\"^(private|no)$\"](" + bb + ");out body;>;out skel qt;";
-    // 가벼움: 가로등·CCTV·상점 (점 데이터라 빠름)
-    const qPoi = "[out:json][timeout:40];(" +
+    // 가벼움: 가로등·CCTV·상점 (점 데이터라 빠름). 도로가 준비된 뒤
+    // 조용히 보강해, 필수 경로 요청과 공용 서버 자원을 경쟁하지 않습니다.
+    const qPoi = "[out:json][timeout:12];(" +
       'node["highway"="street_lamp"](' + bb + ");" +
       'node["man_made"="surveillance"](' + bb + ");" +
       'node["shop"~"^(convenience|supermarket)$"](' + bb + ");" +
@@ -553,20 +573,13 @@ async function loadArea() {
       'node["highway"="bus_stop"](' + bb + ");" +
       ");out body qt;";
 
-    const [rd, po] = await Promise.all([
-      ovp(qRoad, "roadLoading"),
-      ovp(qPoi, "poiLoading")
-    ]);
+    const rd = await ovp(qRoad, "roadLoading");
+    if (version !== loadVersion) return;
     const tNet = performance.now();
 
-    // 무거움: 건물. 실패해도 앱은 그대로 돌아갑니다.
-    let bd = { elements: [] }, bldOk = true;
-    try {
-      const qBld = "[out:json][timeout:50];way[\"building\"](" + bb + ");out center qt;";
-      bd = await ovp(qBld, "buildingLoading");
-    } catch (e) { bldOk = false; }
-
-    build(rd, { elements: [...po.elements, ...bd.elements] }, bldOk);
+    // 건물 전체 요청은 동네 하나에서도 수천 건이 될 수 있어 기본 로딩에서는 제외합니다.
+    // 도로만으로 즉시 경로를 열고, 시설 데이터가 도착하면 안전지표를 갱신합니다.
+    build(rd, { elements: [] }, false);
     const tCalc = performance.now();
 
     start = goal = -1; selEdge = -1;
@@ -574,21 +587,22 @@ async function loadArea() {
 
     $("perf").textContent =
       "내려받기 " + Math.round(tNet - t0) + "ms · 지표 계산 " + Math.round(tCalc - tNet) +
-      "ms · 도로 " + D.m.toLocaleString() + "구간 · 건물 " + D.bld.pts.length.toLocaleString() + "동";
+      "ms · 도로 " + D.m.toLocaleString() + "구간 · 시설 " + D.act.pts.length.toLocaleString() + "곳";
     sayT("loaded");
 
-    const al = $("alert");
-    if (!bldOk) {
-      al.className = "alert on";
-      al.textContent = t("buildingFallback");
-    } else if (D.lamps.pts.length < 15) {
-      al.className = "alert on";
-      al.textContent = t("lowLampData", { lamps: D.lamps.pts.length, buildings: D.bld.pts.length.toLocaleString(), places: D.act.pts.length });
-    } else al.className = "alert";
+    $("alert").className = "alert";
+
+    // 시설 데이터는 준비되는 즉시 현재 도로망에 합쳐서 다시 계산합니다.
+    // 실패해도 이미 표시한 경로는 그대로 사용할 수 있습니다.
+    void ovp(qPoi, "poiLoading", true).then(data => {
+      if (!data || version !== loadVersion || !D) return;
+      enrichFacilities(data.elements);
+    }).catch(() => {});
   } catch (e) {
     sayT("loadFailed", { message: e.message }, "err");
+  } finally {
+    if (version === loadVersion) $("load").disabled = false;
   }
-  $("load").disabled = false;
 }
 
 /* ── 이 기기에만 저장하는 신고 ── */
@@ -624,6 +638,40 @@ function clearSavedReports() {
     recombine(); render();
   }
   sayT("reportsCleared");
+}
+
+/* ── 시설 데이터는 도로망과 분리해 나중에 합칠 수 있습니다 ── */
+function classifyFacilities(elements) {
+  const lamps = [], cctv = [], act = [], refuge = [], bld = [];
+  for (const el of elements) {
+    const la = el.lat ?? el.center?.lat, lo = el.lon ?? el.center?.lon;
+    if (la == null || lo == null) continue;
+    const tags = el.tags || {};
+    if (el.type === "way" || tags.building) { bld.push({ lat: la, lon: lo, src: "osm" }); continue; }
+    if (tags.highway === "street_lamp") { lamps.push({ lat: la, lon: lo, src: "osm" }); continue; }
+    if (tags.man_made === "surveillance") { cctv.push({ lat: la, lon: lo, src: "osm" }); continue; }
+    const isRefuge = tags.shop === "convenience" || tags.amenity === "police" ||
+                     (tags.opening_hours || "").includes("24/7");
+    if (isRefuge) refuge.push({ lat: la, lon: lo, src: "osm" });
+    act.push({ lat: la, lon: lo, src: "osm" });
+  }
+  return { lamps, cctv, act, refuge, bld };
+}
+function setFacilities(facilities, bldOk, preserveManual = false) {
+  const manual = grid => preserveManual ? grid.pts.filter(point => point.src && point.src !== "osm") : [];
+  const lamps = [...facilities.lamps, ...manual(D.lamps)];
+  const refuge = [...facilities.refuge, ...manual(D.ref)];
+  D.lamps = new Grid(lamps, 0.001);
+  D.cctv = new Grid(facilities.cctv, 0.002);
+  D.act = new Grid(facilities.act, 0.0015);
+  D.ref = new Grid(refuge, 0.003);
+  D.bld = new Grid(facilities.bld, 0.001);
+  D.noBld = bldOk === false || facilities.bld.length === 0;
+}
+function enrichFacilities(elements) {
+  setFacilities(classifyFacilities(elements), false, true);
+  indicators(); recombine(); render();
+  $("alert").className = "alert";
 }
 
 /* ── 그래프 + 지표 만들기 ── */
@@ -664,25 +712,11 @@ function build(rd, po, bldOk) {
     adjTo[fill[eb[i]]] = ea[i]; adjE[fill[eb[i]]++] = i;
   }
 
-  /* 3. 시설 분류 */
-  const lamps = [], cctv = [], act = [], refuge = [], bld = [];
-  for (const el of po.elements) {
-    const la = el.lat ?? el.center?.lat, lo = el.lon ?? el.center?.lon;
-    if (la == null) continue;
-    const t = el.tags || {};
-    if (el.type === "way" || t.building) { bld.push({ lat: la, lon: lo }); continue; }
-    if (t.highway === "street_lamp") { lamps.push({ lat: la, lon: lo, src: "osm" }); continue; }
-    if (t.man_made === "surveillance") { cctv.push({ lat: la, lon: lo }); continue; }
-    const isRef = t.shop === "convenience" || t.amenity === "police" ||
-                  (t.opening_hours || "").includes("24/7");
-    if (isRef) refuge.push({ lat: la, lon: lo });
-    act.push({ lat: la, lon: lo });
-  }
+  const facilities = classifyFacilities(po.elements);
 
   D = {
     n, m, lat, lon, ea, eb, elen, etag, head, adjTo, adjE, deg,
-    lamps: new Grid(lamps, 0.001), cctv: new Grid(cctv, 0.002),
-    act: new Grid(act, 0.0015), ref: new Grid(refuge, 0.003), bld: new Grid(bld, 0.001),
+    lamps: null, cctv: null, act: null, ref: null, bld: null,
     nodeGrid: null,
     ind: new Float32Array(m * F),     // 지표 (한 번만 계산)
     pen: new Float32Array(m),         // 신고 감점
@@ -691,7 +725,7 @@ function build(rd, po, bldOk) {
   };
   const np = []; for (let i = 0; i < n; i++) np.push({ lat: lat[i], lon: lon[i] });
   D.nodeGrid = new Grid(np, 0.004);
-  D.noBld = bldOk === false || bld.length === 0;
+  setFacilities(facilities, bldOk);
 
   indicators();
   restoreSavedReports();

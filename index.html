@@ -647,12 +647,12 @@ async function loadTiles(tiles, makeQuery, labelKey, silent, version) {
 }
 
 let loadVersion = 0;
-async function loadArea() {
+async function loadArea({ background = false } = {}) {
   const b = map.getBounds();
   const tiles = splitMapBounds(b);
 
   const version = ++loadVersion;
-  $("load").disabled = true;
+  if (!background) $("load").disabled = true;
   t0 = performance.now();
 
   try {
@@ -697,7 +697,7 @@ async function loadArea() {
   } catch (e) {
     sayT("loadFailed", { message: e.message }, "err");
   } finally {
-    if (version === loadVersion) $("load").disabled = false;
+    if (!background && version === loadVersion) $("load").disabled = false;
   }
 }
 
@@ -1227,7 +1227,7 @@ function startNearCurrentLocation() {
   navigator.geolocation.getCurrentPosition(
     position => {
       map.setView([position.coords.latitude, position.coords.longitude], 16);
-      loadArea().then(() => { if (D) sayT("locatedDefault"); });
+      loadArea({ background: true }).then(() => { if (D) sayT("locatedDefault"); });
     },
     () => sayT("locationDefaultFail"),
     { enableHighAccuracy: false, timeout: 9000, maximumAge: 300000 }
@@ -1345,7 +1345,7 @@ $("adv-toggle").addEventListener("click", () => {
   a.className = on ? "adv on" : "adv";
   $("adv-toggle").textContent = t(on ? "closeExpert" : "openExpert");
 });
-$("load").addEventListener("click", loadArea);
+$("load").addEventListener("click", () => loadArea());
 $("ai-in").addEventListener("input", () => { $("ai-count").textContent = $("ai-in").value.length + " / 500"; });
 $("clear-reports").addEventListener("click", () => { if (confirm(t("clearConfirm"))) clearSavedReports(); });
 

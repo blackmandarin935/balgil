@@ -1,5 +1,9 @@
+<!doctype html>
+<html lang="ko">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0D141F">
 <title>밝길 — 밤길 안전 경로 안내</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -20,6 +24,11 @@
   .logo b{color:var(--lamp)}
   .tag{color:var(--ink-2); font-size:13px}
   .sub{color:var(--ink-3); font-size:12.5px; margin:2px 0 16px}
+  .locale{margin-left:auto; display:flex; align-items:center; gap:6px}
+  .locale label{font-size:11.5px; color:var(--ink-3)}
+  select{appearance:none; padding:7px 28px 7px 10px; min-height:34px; font:inherit; font-size:12px;
+    color:var(--ink); background:var(--panel-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20'%3E%3Cpath fill='%2393A5BD' d='m5 7 5 5 5-5z'/%3E%3C/svg%3E") no-repeat right 9px center;
+    border:1px solid var(--line); border-radius:8px; cursor:pointer}
   .grid{display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,342px); gap:16px}
   @media (max-width:900px){.grid{grid-template-columns:1fr}}
   .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px}
@@ -39,6 +48,7 @@
     border-radius:9px; cursor:pointer; transition:.15s; white-space:nowrap}
   button:hover:not(:disabled){border-color:var(--line-2); color:var(--ink)}
   button:disabled{opacity:.4; cursor:default}
+  button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid rgba(111,168,255,.45); outline-offset:2px}
   button[data-on="1"]{background:var(--info); border-color:var(--info); color:#08111F}
   .btn-main{background:var(--lamp); border-color:var(--lamp); color:#241701; font-weight:700}
   .btn-main:hover:not(:disabled){background:#FFD070; border-color:#FFD070; color:#241701}
@@ -93,83 +103,104 @@
     cursor:pointer; text-decoration:underline; text-underline-offset:3px}
   .link:hover{color:var(--ink-2)}
   .perf{font-size:11px; color:var(--ink-3); margin-top:8px; font-variant-numeric:tabular-nums}
-</style>
-
+  .ai-meta{display:flex; justify-content:space-between; gap:8px; margin-top:5px; font-size:11px; color:var(--ink-3)}
+  .report-tools{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px}
+  .report-tools .note{margin:0; flex:1}
+  .clear{padding:6px 8px; font-size:11px}
+  .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0}
+  @media (max-width:560px){.wrap{padding:14px 10px 34px} header{align-items:flex-start; flex-wrap:wrap; gap:4px 10px}.tag{font-size:12px}.locale{margin-left:auto}.locale label{display:none} #map{height:360px}.searchbar{flex-wrap:wrap}.searchbar input{flex-basis:100%}.searchbar button{flex:1}.card{padding:12px}.report-tools{align-items:flex-start}}
+  </style>
+</head>
+<body>
 <div class="wrap">
   <header>
     <div class="logo">밝<b>길</b></div>
-    <div class="tag">가장 빠른 길 말고, 가장 안전한 길</div>
+    <div class="tag" data-i18n="tagline">가장 빠른 길 말고, 가장 안전한 길</div>
+    <div class="locale">
+      <label for="language" data-i18n="languageLabel">언어</label>
+      <select id="language" aria-label="언어 선택">
+        <option value="ko">한국어</option>
+        <option value="en">English</option>
+        <option value="ja">日本語</option>
+        <option value="zh">简体中文</option>
+        <option value="vi">Tiếng Việt</option>
+        <option value="es">Español</option>
+        <option value="fr">Français</option>
+      </select>
+    </div>
   </header>
-  <div class="sub">CPTED(범죄예방 환경설계) 5원리로 밤길 위험도를 계산합니다.</div>
+  <div class="sub" data-i18n="subtitle">CPTED(범죄예방 환경설계) 5원리로 밤길 위험도를 계산합니다.</div>
 
   <div class="grid">
     <div class="card">
       <div class="searchbar">
-        <input type="text" id="q" placeholder="동네 이름 — 예: 대전 둔산동, 논산 취암동">
-        <button id="go-search">검색</button>
-        <button id="go-here">내 위치</button>
+        <input type="text" id="q" placeholder="동네 이름 — 예: 대전 둔산동, 논산 취암동" data-i18n-placeholder="searchPlaceholder" autocomplete="street-address">
+        <button id="go-search" data-i18n="search">검색</button>
+        <button id="go-here" data-i18n="myLocation">내 위치</button>
       </div>
       <div id="map"></div>
       <div class="legend">
-        <span><i style="background:var(--safe)"></i>안전 경로</span>
-        <span><i style="background:var(--fast)"></i>최단 경로</span>
-        <span><span class="dot" style="background:var(--lamp)"></span>가로등</span>
+        <span><i style="background:var(--safe)"></i><span data-i18n="safeRoute">안전 경로</span></span>
+        <span><i style="background:var(--fast)"></i><span data-i18n="fastestRoute">최단 경로</span></span>
+        <span><span class="dot" style="background:var(--lamp)"></span><span data-i18n="streetLamp">가로등</span></span>
         <span><span class="dot" style="background:var(--info)"></span>CCTV</span>
-        <span><span class="dot" style="background:#3DDC97"></span>대피소·상점</span>
-        <span><span class="dot" style="background:var(--warn)"></span>신고</span>
+        <span><span class="dot" style="background:#3DDC97"></span><span data-i18n="shelterStore">대피소·상점</span></span>
+        <span><span class="dot" style="background:var(--warn)"></span><span data-i18n="report">신고</span></span>
       </div>
-      <div class="status" id="status">지도를 옮겨 동네를 화면에 담고, 오른쪽 “이 지역 불러오기”를 누르세요.</div>
+      <div class="status" id="status" aria-live="polite">지도를 옮겨 동네를 화면에 담고, 오른쪽 “이 지역 불러오기”를 누르세요.</div>
       <div class="perf" id="perf"></div>
     </div>
 
     <div>
       <div class="card">
-        <h2>1. 데이터 불러오기</h2>
-        <button class="btn-main" id="load" style="width:100%">이 지역 불러오기</button>
-        <div class="note">화면 범위의 <b>도로·건물·가로등·상점·CCTV</b>를 OpenStreetMap에서 한 번에 가져옵니다.</div>
+        <h2 data-i18n="loadTitle">1. 데이터 불러오기</h2>
+        <button class="btn-main" id="load" style="width:100%" data-i18n="loadArea">이 지역 불러오기</button>
+        <div class="note" data-i18n="loadNote">화면 범위의 <b>도로·건물·가로등·상점·CCTV</b>를 OpenStreetMap에서 한 번에 가져옵니다.</div>
         <div class="alert" id="alert"></div>
         <input type="file" id="csv" accept=".csv,.txt">
-        <div class="note">공공데이터포털 CSV(가로등, 여성안심지킴이집 등)를 넣어 보완할 수 있습니다. 위도·경도 열을 자동으로 찾습니다.</div>
+        <div class="note" data-i18n="csvNote">공공데이터포털 CSV(가로등, 여성안심지킴이집 등)를 넣어 보완할 수 있습니다. 위도·경도 열을 자동으로 찾습니다.</div>
       </div>
 
       <div class="card">
-        <h2>2. 경로 찾기</h2>
+        <h2 data-i18n="routeTitle">2. 경로 찾기</h2>
         <div class="modes" id="modes">
-          <button data-mode="route" data-on="1">출발·도착</button>
-          <button data-mode="lamp">가로등 추가</button>
-          <button data-mode="report">위험 신고</button>
+          <button data-mode="route" data-on="1" data-i18n="routeMode">출발·도착</button>
+          <button data-mode="lamp" data-i18n="addLamp">가로등 추가</button>
+          <button data-mode="report" data-i18n="riskReport">위험 신고</button>
         </div>
         <div class="verdict" id="verdict"></div>
         <div class="bars" id="bars"></div>
       </div>
 
       <div class="card">
-        <h2>3. 누가 걷나요?</h2>
+        <h2 data-i18n="peopleTitle">3. 누가 걷나요?</h2>
         <div class="presets" id="presets">
-          <button data-p="0" data-on="1">기본</button>
-          <button data-p="1">혼자 늦은 밤</button>
-          <button data-p="2">아이와 함께</button>
-          <button data-p="3">인적 드문 길 피하기</button>
+          <button data-p="0" data-on="1" data-i18n="presetDefault">기본</button>
+          <button data-p="1" data-i18n="presetAlone">혼자 늦은 밤</button>
+          <button data-p="2" data-i18n="presetChild">아이와 함께</button>
+          <button data-p="3" data-i18n="presetQuiet">인적 드문 길 피하기</button>
         </div>
-        <div class="note">상황에 따라 무엇을 더 중요하게 볼지 달라집니다. 골라 보면 경로가 바뀝니다.</div>
-        <button class="link" id="adv-toggle">전문가 설정 열기</button>
+        <div class="note" data-i18n="presetNote">상황에 따라 무엇을 더 중요하게 볼지 달라집니다. 골라 보면 경로가 바뀝니다.</div>
+        <button class="link" id="adv-toggle" data-i18n="openExpert">전문가 설정 열기</button>
         <div class="adv" id="adv">
-          <div class="row"><label>돌아가기 감수</label><input type="range" id="alpha" min="0" max="6" step="0.2" value="3"><span class="num" id="alpha-v">3.0</span></div>
-          <div class="row"><label>조도</label><input type="range" id="w0" min="0" max="1" step="0.05" value="0.30"><span class="num" id="w0-v">.30</span></div>
-          <div class="row"><label>자연적 감시</label><input type="range" id="w1" min="0" max="1" step="0.05" value="0.25"><span class="num" id="w1-v">.25</span></div>
-          <div class="row"><label>활용성</label><input type="range" id="w2" min="0" max="1" step="0.05" value="0.15"><span class="num" id="w2-v">.15</span></div>
-          <div class="row"><label>구조</label><input type="range" id="w3" min="0" max="1" step="0.05" value="0.20"><span class="num" id="w3-v">.20</span></div>
-          <div class="row"><label>대피소</label><input type="range" id="w4" min="0" max="1" step="0.05" value="0.10"><span class="num" id="w4-v">.10</span></div>
-          <div class="note">CPTED 5원리에 대응합니다. 발표·보고서용 지표입니다.</div>
+          <div class="row"><label data-i18n="detour">돌아가기 감수</label><input type="range" id="alpha" min="0" max="6" step="0.2" value="3"><span class="num" id="alpha-v">3.0</span></div>
+          <div class="row"><label data-i18n="light">조도</label><input type="range" id="w0" min="0" max="1" step="0.05" value="0.30"><span class="num" id="w0-v">.30</span></div>
+          <div class="row"><label data-i18n="watch">자연적 감시</label><input type="range" id="w1" min="0" max="1" step="0.05" value="0.25"><span class="num" id="w1-v">.25</span></div>
+          <div class="row"><label data-i18n="activity">활용성</label><input type="range" id="w2" min="0" max="1" step="0.05" value="0.15"><span class="num" id="w2-v">.15</span></div>
+          <div class="row"><label data-i18n="structure">구조</label><input type="range" id="w3" min="0" max="1" step="0.05" value="0.20"><span class="num" id="w3-v">.20</span></div>
+          <div class="row"><label data-i18n="shelter">대피소</label><input type="range" id="w4" min="0" max="1" step="0.05" value="0.10"><span class="num" id="w4-v">.10</span></div>
+          <div class="note" data-i18n="expertNote">CPTED 5원리에 대응합니다. 발표·보고서용 지표입니다.</div>
         </div>
       </div>
 
       <div class="card">
-        <h2>4. AI 신고 접수</h2>
-        <div class="note" style="margin:0 0 8px">신고 모드에서 길을 하나 고른 뒤 말하듯이 적어 보세요.</div>
-        <textarea id="ai-in" placeholder="예) 여기 가로등이 며칠째 깜빡거려요. 밤에 앞이 거의 안 보여요."></textarea>
-        <button class="btn-main" id="ai-go" style="width:100%; margin-top:8px">AI로 분석하고 등록</button>
+        <h2 data-i18n="reportTitle">4. AI 신고 접수</h2>
+        <div class="note" style="margin:0 0 8px" data-i18n="reportNote">신고 모드에서 길을 하나 고른 뒤 말하듯이 적어 보세요.</div>
+        <textarea id="ai-in" maxlength="500" placeholder="예) 여기 가로등이 며칠째 깜빡거려요. 밤에 앞이 거의 안 보여요." data-i18n-placeholder="reportPlaceholder" aria-describedby="ai-count"></textarea>
+        <div class="ai-meta"><span id="ai-count">0 / 500</span><span data-i18n="reportLocalOnly">내 기기에만 저장되며 기관에 자동 전송되지 않습니다.</span></div>
+        <button class="btn-main" id="ai-go" style="width:100%; margin-top:8px" data-i18n="analyzeReport">AI로 분석하고 등록</button>
         <div class="aiout" id="ai-out"></div>
+        <div class="report-tools"><div class="note" data-i18n="savedReportsNote">저장된 신고는 같은 기기에서 다시 불러올 수 있습니다.</div><button class="clear" id="clear-reports" data-i18n="clearReports">저장 신고 삭제</button></div>
       </div>
     </div>
   </div>
@@ -192,6 +223,189 @@
    ═══════════════════════════════════════════════════════════ */
 
 // Overpass 공개 서버는 자주 붐빕니다. 여러 곳을 순서대로 시도합니다.
+const I18N = {
+  ko: {
+    title: "밝길 — 밤길 안전 경로 안내", tagline: "가장 빠른 길 말고, 가장 안전한 길", subtitle: "CPTED(범죄예방 환경설계) 5원리로 밤길 위험도를 계산합니다.", languageLabel: "언어",
+    searchPlaceholder: "동네 이름 — 예: 대전 둔산동, 논산 취암동", search: "검색", myLocation: "내 위치", safeRoute: "안전 경로", fastestRoute: "최단 경로", streetLamp: "가로등", shelterStore: "대피소·상점", report: "신고",
+    initialStatus: "지도를 옮겨 동네를 화면에 담고, 오른쪽 “이 지역 불러오기”를 누르세요.", loadTitle: "1. 데이터 불러오기", loadArea: "이 지역 불러오기", loadNote: "화면 범위의 도로·건물·가로등·상점·CCTV를 OpenStreetMap에서 한 번에 가져옵니다.", csvNote: "공공데이터포털 CSV(가로등, 여성안심지킴이집 등)를 넣어 보완할 수 있습니다. 위도·경도 열을 자동으로 찾습니다.",
+    routeTitle: "2. 경로 찾기", routeMode: "출발·도착", addLamp: "가로등 추가", riskReport: "위험 신고", peopleTitle: "3. 누가 걷나요?", presetDefault: "기본", presetAlone: "혼자 늦은 밤", presetChild: "아이와 함께", presetQuiet: "인적 드문 길 피하기", presetNote: "상황에 따라 무엇을 더 중요하게 볼지 달라집니다. 골라 보면 경로가 바뀝니다.", openExpert: "전문가 설정 열기", closeExpert: "전문가 설정 닫기",
+    detour: "돌아가기 감수", light: "조도", watch: "자연적 감시", activity: "활용성", structure: "구조", shelter: "대피소", expertNote: "CPTED 5원리에 대응합니다. 발표·보고서용 지표입니다.",
+    reportTitle: "4. AI 신고 접수", reportNote: "신고 모드에서 길을 하나 고른 뒤 말하듯이 적어 보세요.", reportPlaceholder: "예) 여기 가로등이 며칠째 깜빡거려요. 밤에 앞이 거의 안 보여요.", reportLocalOnly: "내 기기에만 저장되며 기관에 자동 전송되지 않습니다.", analyzeReport: "AI로 분석하고 등록", savedReportsNote: "저장된 신고는 같은 기기에서 다시 불러올 수 있습니다.", clearReports: "저장 신고 삭제",
+    metrics: ["가로등", "주변 시선", "밤에 사람", "길 모양", "대피할 곳"], metricWords: [["거의 없음", "드문드문", "보통", "밝은 편"], ["거의 없음", "적음", "보통", "많음"], ["드묾", "조금 있음", "꽤 있음", "많음"], ["좁은 골목", "보통 길", "넓은 길", "큰길"], ["멀어요", "조금 멀어요", "가까워요", "바로 옆"]],
+    grades: ["밤에 걷기 좋아요", "무난해요", "조금 조심하세요", "혼자는 피하고 싶은 길"], whyRoute: "이 길은 왜 그런가요?", wholeGood: "전반적으로 괜찮은 길이에요.", wholeNeutral: "특별히 나쁘진 않지만 눈에 띄게 좋지도 않아요.", goodReasons: ["가로등이 밝고", "주변에 창문이 많고", "밤에도 사람이 다니고", "길이 넓고", "대피할 곳이 가깝고"], badReasons: ["가로등이 거의 없어요", "주변에 인기척이 적어요", "밤엔 사람이 드물어요", "길이 좁아요", "대피할 곳이 멀어요"],
+    type: { 조명: "조명", 시야: "시야", 노면: "노면", 치안: "치안", 기타: "기타" }, severity: "심각도", action: "제안 조치", engine: "엔진", aiEngine: "AI 분석", ruleEngine: "규칙 분석 (AI 서버 없음)",
+    mapNotLoaded: "먼저 “이 지역 불러오기”를 눌러 주세요.", choosePoints: "지도를 클릭해 출발지와 도착지를 정하세요.", lampAdded: "가로등을 추가했습니다. 현재 {count}개입니다.", selectRoad: "구간을 선택했습니다. 아래 4번에 상황을 적어 보세요.", noRoadNearby: "가까운 길이 없습니다.", noWalkableNearby: "근처에 걸을 수 있는 길이 없습니다.", disconnected: "두 지점이 길로 이어져 있지 않습니다.", fastestIsSafest: "가장 빠른 길이 마침 가장 안전한 길이에요.", detourCompare: "{time} 더 걸어서 어두운 구간을 {count}곳 피했어요.", routeMeta: "{meters}m · 걸어서 {minutes}분 · 이 동네 길 중 상위 {percent}%", routeCalc: "{message} (경로 계산 {ms}ms)",
+    findingAddress: "주소를 찾는 중…", addressFound: "{name} ({via}) — “이 지역 불러오기”를 눌러 주세요.", addressFail: "검색 실패: {message} — 지도를 직접 옮겨도 됩니다.", locating: "현재 위치 확인 중…", located: "이동했습니다. “이 지역 불러오기”를 눌러 주세요.", locationFail: "위치를 가져오지 못했습니다. 권한을 허용해 주세요.", locationUnsupported: "위치 기능을 지원하지 않습니다.",
+    dataLoading: "{label} (서버 {current}/{total})", tooLarge: "범위가 너무 넓습니다 (약 {area}km²). 지도를 확대해 동네 하나 정도로 좁혀 주세요.", roadLoading: "도로망을 불러오는 중", poiLoading: "가로등·상점을 불러오는 중", buildingLoading: "건물을 불러오는 중", loaded: "불러왔습니다. 지도에서 출발지와 도착지를 클릭하세요.", loadFailed: "불러오기 실패: {message} — 지도를 더 확대하거나 잠시 뒤 다시 시도해 주세요.", noWalkable: "걸을 수 있는 길을 찾지 못했습니다", csvEmpty: "CSV가 비어 있습니다.", csvNoCoords: "위도·경도 열을 찾지 못했습니다.", csvAdded: "CSV에서 {count}곳을 {kind}로 추가했습니다.", shelterKind: "대피소", lampKind: "가로등",
+    reportEmpty: "신고 내용을 적어 주세요.", reportSelectFirst: "먼저 “위험 신고” 모드에서 지도의 길을 클릭하세요.", analyzing: "분석 중…", reportDone: "AI로 분석하고 등록", reportsCleared: "이 기기에 저장된 신고를 삭제했습니다.", clearConfirm: "이 기기에 저장된 신고를 모두 삭제할까요?"
+  },
+  en: {
+    title: "Balgil — Safer night walking routes", tagline: "The safest route, not just the fastest", subtitle: "Estimates nighttime walking safety with five CPTED principles.", languageLabel: "Language",
+    searchPlaceholder: "Neighborhood — e.g. Dunsan-dong, Daejeon", search: "Search", myLocation: "My location", safeRoute: "Safer route", fastestRoute: "Fastest route", streetLamp: "Street lamps", shelterStore: "Shelters · shops", report: "Report",
+    initialStatus: "Move the map to a neighborhood, then select “Load this area”.", loadTitle: "1. Load data", loadArea: "Load this area", loadNote: "Loads roads, buildings, lamps, shops, and CCTV in the visible area from OpenStreetMap.", csvNote: "Add public CSV data such as lamps or safe shelters. Latitude and longitude columns are detected automatically.",
+    routeTitle: "2. Find a route", routeMode: "Start · destination", addLamp: "Add a lamp", riskReport: "Report a risk", peopleTitle: "3. Who is walking?", presetDefault: "Default", presetAlone: "Late at night alone", presetChild: "With a child", presetQuiet: "Avoid quiet streets", presetNote: "Different situations prioritize different things. Select one to update the route.", openExpert: "Open advanced settings", closeExpert: "Close advanced settings",
+    detour: "Detour tolerance", light: "Lighting", watch: "Natural surveillance", activity: "Activity", structure: "Street layout", shelter: "Shelter", expertNote: "These controls correspond to five CPTED principles and are intended for exploration.",
+    reportTitle: "4. AI report", reportNote: "In report mode, select a road and describe the issue naturally.", reportPlaceholder: "Example: The streetlight has been flickering for days. It is very dark at night.", reportLocalOnly: "Saved only on this device; it is not automatically sent to an agency.", analyzeReport: "Analyze and save report", savedReportsNote: "Saved reports can be loaded again on this device.", clearReports: "Clear saved reports",
+    metrics: ["Street lamps", "Eyes nearby", "Night activity", "Street layout", "Shelter"], metricWords: [["Very few", "Scattered", "Average", "Well lit"], ["Very few", "Few", "Average", "Many"], ["Sparse", "Some", "Quite active", "Active"], ["Narrow lane", "Regular street", "Wide street", "Main road"], ["Far away", "A little far", "Nearby", "Right next to you"]],
+    grades: ["Good for walking at night", "Generally okay", "Use extra caution", "Best to avoid alone"], whyRoute: "Why this route?", wholeGood: "This route is generally in good shape.", wholeNeutral: "Nothing stands out as particularly good or bad.", goodReasons: ["the street lamps are bright", "there are many windows nearby", "people are around at night", "the street is wide", "a shelter is close"], badReasons: ["there are almost no street lamps", "there are few people nearby", "few people pass by at night", "the street is narrow", "shelters are far away"],
+    type: { 조명: "Lighting", 시야: "Visibility", 노면: "Road surface", 치안: "Security", 기타: "Other" }, severity: "Severity", action: "Suggested action", engine: "Engine", aiEngine: "AI analysis", ruleEngine: "Rule-based analysis (AI unavailable)",
+    mapNotLoaded: "Select “Load this area” first.", choosePoints: "Click the map to set a start and destination.", lampAdded: "Street lamp added. Total: {count}.", selectRoad: "Road selected. Describe the issue in section 4 below.", noRoadNearby: "No road is nearby.", noWalkableNearby: "There is no walkable road nearby.", disconnected: "These two points are not connected by roads.", fastestIsSafest: "The fastest route also happens to be the safest.", detourCompare: "Walk {time} more to avoid {count} darker sections.", routeMeta: "{meters}m · {minutes} min walk · safer than {percent}% of streets here", routeCalc: "{message} (route calculated in {ms}ms)",
+    findingAddress: "Finding the address…", addressFound: "{name} ({via}) — select “Load this area”.", addressFail: "Search failed: {message} — you can move the map manually.", locating: "Finding your location…", located: "Moved to your location. Select “Load this area”.", locationFail: "Could not get your location. Please allow location access.", locationUnsupported: "Location is not supported by this browser.",
+    dataLoading: "{label} (server {current}/{total})", tooLarge: "This area is too large (about {area}km²). Zoom in to one neighborhood.", roadLoading: "Loading roads", poiLoading: "Loading lamps and places", buildingLoading: "Loading buildings", loaded: "Loaded. Click the map for a start and destination.", loadFailed: "Could not load: {message} — zoom in or try again shortly.", noWalkable: "No walkable roads were found", csvEmpty: "The CSV is empty.", csvNoCoords: "Could not find latitude and longitude columns.", csvAdded: "Added {count} {kind} entries from the CSV.", shelterKind: "shelter", lampKind: "street lamp",
+    reportEmpty: "Please describe the issue.", reportSelectFirst: "First select a road in “Report a risk” mode.", analyzing: "Analyzing…", reportDone: "Analyze and save report", reportsCleared: "Saved reports on this device were deleted.", clearConfirm: "Delete all reports saved on this device?"
+  },
+  ja: {
+    title: "明るい道 — 夜道の安全ルート案内", tagline: "最短より、安全な道", subtitle: "CPTEDの5原則で夜間歩行の安全性を推定します。", languageLabel: "言語",
+    searchPlaceholder: "地域名 — 例: 大田広域市 屯山洞", search: "検索", myLocation: "現在地", safeRoute: "安全なルート", fastestRoute: "最短ルート", streetLamp: "街灯", shelterStore: "避難場所・店舗", report: "報告",
+    initialStatus: "地図を移動し、地域を表示してから「この地域を読み込む」を選んでください。", loadTitle: "1. データを読み込む", loadArea: "この地域を読み込む", loadNote: "表示範囲の道路・建物・街灯・店舗・CCTVをOpenStreetMapから読み込みます。", csvNote: "街灯や安心避難所などのCSVを追加できます。緯度・経度の列を自動検出します。",
+    routeTitle: "2. ルートを探す", routeMode: "出発・到着", addLamp: "街灯を追加", riskReport: "危険を報告", peopleTitle: "3. 誰が歩きますか？", presetDefault: "標準", presetAlone: "深夜に一人", presetChild: "子どもと一緒", presetQuiet: "人通りの少ない道を避ける", presetNote: "状況によって重視する項目が変わります。選ぶとルートが変わります。", openExpert: "詳細設定を開く", closeExpert: "詳細設定を閉じる",
+    detour: "遠回りの許容", light: "照明", watch: "自然監視", activity: "人の活動", structure: "道の形", shelter: "避難場所", expertNote: "CPTEDの5原則に対応する探索用の設定です。",
+    reportTitle: "4. AIで危険を報告", reportNote: "報告モードで道を選び、状況を自然な言葉で入力してください。", reportPlaceholder: "例: 街灯が何日も点滅していて、夜は前がよく見えません。", reportLocalOnly: "この端末にのみ保存され、機関へ自動送信されません。", analyzeReport: "AIで分析して保存", savedReportsNote: "保存した報告は同じ端末で再表示できます。", clearReports: "保存した報告を削除",
+    metrics: ["街灯", "周囲の目", "夜の人通り", "道の形", "避難場所"], metricWords: [["ほとんどない", "まばら", "普通", "明るい"], ["ほとんどない", "少ない", "普通", "多い"], ["少ない", "少しある", "かなりある", "多い"], ["狭い路地", "普通の道", "広い道", "大通り"], ["遠い", "少し遠い", "近い", "すぐそば"]],
+    grades: ["夜でも歩きやすい", "おおむね問題なし", "少し注意", "一人では避けたい道"], whyRoute: "このルートの理由", wholeGood: "全体的に問題の少ない道です。", wholeNeutral: "特に良くも悪くもない道です。", goodReasons: ["街灯が明るく", "周囲に窓が多く", "夜も人通りがあり", "道幅が広く", "避難場所が近く"], badReasons: ["街灯がほとんどなく", "周囲に人の気配が少なく", "夜は人通りが少なく", "道幅が狭く", "避難場所が遠い"],
+    type: { 조명: "照明", 시야: "視界", 노면: "路面", 치안: "防犯", 기타: "その他" }, severity: "深刻度", action: "提案する対応", engine: "エンジン", aiEngine: "AI分析", ruleEngine: "ルール分析（AIなし）",
+    mapNotLoaded: "先に「この地域を読み込む」を選んでください。", choosePoints: "地図をクリックして出発地と到着地を選んでください。", lampAdded: "街灯を追加しました。現在{count}件です。", selectRoad: "道路を選択しました。下の4番に状況を入力してください。", noRoadNearby: "近くに道路がありません。", noWalkableNearby: "近くに歩ける道路がありません。", disconnected: "この2地点は道路でつながっていません。", fastestIsSafest: "最短ルートがたまたま最も安全です。", detourCompare: "{time}遠回りして、暗い区間を{count}か所避けます。", routeMeta: "{meters}m・徒歩{minutes}分・この地域で上位{percent}%", routeCalc: "{message}（経路計算 {ms}ms）",
+    findingAddress: "住所を検索中…", addressFound: "{name}（{via}）—「この地域を読み込む」を選んでください。", addressFail: "検索に失敗しました: {message} — 地図を直接動かすこともできます。", locating: "現在地を確認中…", located: "現在地へ移動しました。「この地域を読み込む」を選んでください。", locationFail: "現在地を取得できませんでした。位置情報を許可してください。", locationUnsupported: "このブラウザは位置情報に対応していません。",
+    dataLoading: "{label}（サーバー {current}/{total}）", tooLarge: "範囲が広すぎます（約{area}km²）。近所1つ分まで拡大してください。", roadLoading: "道路網を読み込み中", poiLoading: "街灯・施設を読み込み中", buildingLoading: "建物を読み込み中", loaded: "読み込みました。地図で出発地と到着地を選んでください。", loadFailed: "読み込みに失敗しました: {message} — 拡大して、少し待ってから再試行してください。", noWalkable: "歩ける道が見つかりませんでした", csvEmpty: "CSVが空です。", csvNoCoords: "緯度・経度の列が見つかりません。", csvAdded: "CSVから{count}件の{kind}を追加しました。", shelterKind: "避難場所", lampKind: "街灯",
+    reportEmpty: "状況を入力してください。", reportSelectFirst: "先に「危険を報告」モードで道を選んでください。", analyzing: "分析中…", reportDone: "AIで分析して保存", reportsCleared: "この端末の保存済み報告を削除しました。", clearConfirm: "この端末に保存した報告をすべて削除しますか？"
+  },
+  zh: {
+    title: "亮路 — 夜间安全路线", tagline: "不只最快，更要安全", subtitle: "依据 CPTED 五项原则估算夜间步行安全性。", languageLabel: "语言",
+    searchPlaceholder: "输入地区名称 — 例如：大田广域市屯山洞", search: "搜索", myLocation: "我的位置", safeRoute: "较安全路线", fastestRoute: "最快路线", streetLamp: "路灯", shelterStore: "避难点・商店", report: "上报",
+    initialStatus: "移动地图显示一个地区，然后选择“加载此区域”。", loadTitle: "1. 加载数据", loadArea: "加载此区域", loadNote: "从 OpenStreetMap 加载当前区域的道路、建筑、路灯、商店和 CCTV。", csvNote: "可补充路灯、安心避难点等公共 CSV 数据。系统会自动识别经纬度列。",
+    routeTitle: "2. 查找路线", routeMode: "起点・终点", addLamp: "添加路灯", riskReport: "上报风险", peopleTitle: "3. 谁在步行？", presetDefault: "默认", presetAlone: "深夜独行", presetChild: "与儿童同行", presetQuiet: "避开人少的路", presetNote: "不同情境有不同优先事项。选择后路线会更新。", openExpert: "打开高级设置", closeExpert: "关闭高级设置",
+    detour: "绕路容忍度", light: "照明", watch: "自然监视", activity: "活动度", structure: "道路结构", shelter: "避难点", expertNote: "这些设置对应 CPTED 五项原则，适合探索使用。",
+    reportTitle: "4. AI 风险上报", reportNote: "在上报模式选择一条道路后，用自然语言描述问题。", reportPlaceholder: "例如：这盏路灯已经闪烁好几天，晚上几乎看不清前方。", reportLocalOnly: "仅保存到此设备，不会自动发送给机构。", analyzeReport: "AI 分析并保存", savedReportsNote: "保存的上报可在同一设备上再次加载。", clearReports: "清除已保存的上报",
+    metrics: ["路灯", "周边视线", "夜间人流", "道路结构", "避难点"], metricWords: [["几乎没有", "零星", "一般", "明亮"], ["几乎没有", "较少", "一般", "较多"], ["稀少", "有一些", "较活跃", "活跃"], ["狭窄小巷", "普通道路", "宽阔道路", "主干道"], ["很远", "有点远", "较近", "就在旁边"]],
+    grades: ["适合夜间步行", "总体还好", "请多加注意", "不建议独自走"], whyRoute: "为什么选择这条路线？", wholeGood: "这条路线整体状况不错。", wholeNeutral: "没有特别好或特别差的地方。", goodReasons: ["路灯明亮", "附近窗户较多", "晚上也有人经过", "道路较宽", "避难点较近"], badReasons: ["几乎没有路灯", "附近人迹较少", "夜晚行人稀少", "道路狭窄", "避难点较远"],
+    type: { 조명: "照明", 시야: "视野", 노면: "路面", 치안: "治安", 기타: "其他" }, severity: "严重程度", action: "建议措施", engine: "引擎", aiEngine: "AI 分析", ruleEngine: "规则分析（AI 不可用）",
+    mapNotLoaded: "请先选择“加载此区域”。", choosePoints: "点击地图设置起点和终点。", lampAdded: "已添加路灯。当前共 {count} 个。", selectRoad: "已选择道路。请在下方第 4 部分描述情况。", noRoadNearby: "附近没有道路。", noWalkableNearby: "附近没有可步行道路。", disconnected: "这两个地点没有道路连接。", fastestIsSafest: "最快路线恰好也是最安全的。", detourCompare: "多走 {time}，避开 {count} 段较暗道路。", routeMeta: "{meters} 米 · 步行 {minutes} 分钟 · 安全程度高于本区域 {percent}% 的道路", routeCalc: "{message}（路线计算 {ms}ms）",
+    findingAddress: "正在查找地址…", addressFound: "{name}（{via}）— 请选择“加载此区域”。", addressFail: "搜索失败：{message} — 也可以手动移动地图。", locating: "正在获取当前位置…", located: "已移动到当前位置。请选择“加载此区域”。", locationFail: "无法获取当前位置，请允许位置权限。", locationUnsupported: "此浏览器不支持定位功能。",
+    dataLoading: "{label}（服务器 {current}/{total}）", tooLarge: "区域过大（约 {area}km²）。请放大到一个社区。", roadLoading: "正在加载道路", poiLoading: "正在加载路灯和设施", buildingLoading: "正在加载建筑", loaded: "加载完成。请在地图上选择起点和终点。", loadFailed: "加载失败：{message} — 请放大地图或稍后重试。", noWalkable: "未找到可步行道路", csvEmpty: "CSV 为空。", csvNoCoords: "未找到纬度和经度列。", csvAdded: "已从 CSV 添加 {count} 个{kind}。", shelterKind: "避难点", lampKind: "路灯",
+    reportEmpty: "请填写问题描述。", reportSelectFirst: "请先在“上报风险”模式选择一条道路。", analyzing: "正在分析…", reportDone: "AI 分析并保存", reportsCleared: "已删除此设备保存的上报。", clearConfirm: "要删除此设备保存的所有上报吗？"
+  },
+  vi: {
+    title: "Balgil — Tuyến đường đêm an toàn", tagline: "Không chỉ nhanh nhất, mà còn an toàn nhất", subtitle: "Ước tính độ an toàn khi đi bộ ban đêm theo 5 nguyên tắc CPTED.", languageLabel: "Ngôn ngữ",
+    searchPlaceholder: "Tên khu vực — ví dụ: Dunsan-dong, Daejeon", search: "Tìm kiếm", myLocation: "Vị trí của tôi", safeRoute: "Tuyến đường an toàn", fastestRoute: "Tuyến đường nhanh nhất", streetLamp: "Đèn đường", shelterStore: "Nơi trú ẩn · cửa hàng", report: "Báo cáo",
+    initialStatus: "Di chuyển bản đồ đến khu vực cần xem, sau đó chọn “Tải khu vực này”.", loadTitle: "1. Tải dữ liệu", loadArea: "Tải khu vực này", loadNote: "Tải đường, tòa nhà, đèn, cửa hàng và CCTV trong vùng hiển thị từ OpenStreetMap.", csvNote: "Có thể bổ sung CSV công cộng như đèn đường hoặc điểm trú ẩn. Cột vĩ độ và kinh độ được tự nhận diện.",
+    routeTitle: "2. Tìm tuyến đường", routeMode: "Điểm đi · điểm đến", addLamp: "Thêm đèn", riskReport: "Báo nguy hiểm", peopleTitle: "3. Ai đang đi bộ?", presetDefault: "Mặc định", presetAlone: "Một mình khuya", presetChild: "Đi cùng trẻ em", presetQuiet: "Tránh đường vắng", presetNote: "Mỗi tình huống có ưu tiên khác nhau. Chọn một mục để cập nhật tuyến đường.", openExpert: "Mở cài đặt nâng cao", closeExpert: "Đóng cài đặt nâng cao",
+    detour: "Chấp nhận đi vòng", light: "Ánh sáng", watch: "Giám sát tự nhiên", activity: "Hoạt động", structure: "Cấu trúc đường", shelter: "Nơi trú ẩn", expertNote: "Các điều khiển này tương ứng với 5 nguyên tắc CPTED và dùng để tham khảo.",
+    reportTitle: "4. Báo cáo bằng AI", reportNote: "Ở chế độ báo cáo, hãy chọn một đoạn đường và mô tả vấn đề bằng lời tự nhiên.", reportPlaceholder: "Ví dụ: Đèn đường nhấp nháy nhiều ngày rồi. Ban đêm gần như không nhìn thấy phía trước.", reportLocalOnly: "Chỉ lưu trên thiết bị này; không tự động gửi đến cơ quan.", analyzeReport: "Phân tích và lưu báo cáo", savedReportsNote: "Báo cáo đã lưu có thể được tải lại trên cùng thiết bị.", clearReports: "Xóa báo cáo đã lưu",
+    metrics: ["Đèn đường", "Quan sát xung quanh", "Hoạt động ban đêm", "Cấu trúc đường", "Nơi trú ẩn"], metricWords: [["Rất ít", "Rải rác", "Trung bình", "Sáng"], ["Rất ít", "Ít", "Trung bình", "Nhiều"], ["Thưa", "Có một ít", "Khá đông", "Đông"], ["Hẻm hẹp", "Đường thường", "Đường rộng", "Đường chính"], ["Xa", "Hơi xa", "Gần", "Ngay cạnh"]],
+    grades: ["Tốt để đi bộ ban đêm", "Nhìn chung ổn", "Cần cẩn thận hơn", "Nên tránh đi một mình"], whyRoute: "Vì sao chọn tuyến này?", wholeGood: "Tuyến đường này nhìn chung khá ổn.", wholeNeutral: "Không có điểm nào đặc biệt tốt hoặc xấu.", goodReasons: ["đèn đường sáng", "có nhiều cửa sổ xung quanh", "ban đêm vẫn có người qua lại", "đường rộng", "nơi trú ẩn ở gần"], badReasons: ["hầu như không có đèn đường", "xung quanh ít người", "ban đêm ít người qua lại", "đường hẹp", "nơi trú ẩn ở xa"],
+    type: { 조명: "Ánh sáng", 시야: "Tầm nhìn", 노면: "Mặt đường", 치안: "An ninh", 기타: "Khác" }, severity: "Mức độ", action: "Đề xuất xử lý", engine: "Bộ máy", aiEngine: "Phân tích AI", ruleEngine: "Phân tích theo quy tắc (không có AI)",
+    mapNotLoaded: "Hãy chọn “Tải khu vực này” trước.", choosePoints: "Nhấp vào bản đồ để chọn điểm đi và điểm đến.", lampAdded: "Đã thêm đèn đường. Hiện có {count} đèn.", selectRoad: "Đã chọn đoạn đường. Hãy mô tả vấn đề ở mục 4 bên dưới.", noRoadNearby: "Không có đường ở gần.", noWalkableNearby: "Không có đường đi bộ ở gần.", disconnected: "Hai điểm này không được nối bằng đường.", fastestIsSafest: "Tuyến nhanh nhất cũng tình cờ là tuyến an toàn nhất.", detourCompare: "Đi thêm {time} để tránh {count} đoạn đường tối hơn.", routeMeta: "{meters}m · đi bộ {minutes} phút · an toàn hơn {percent}% đường trong khu vực", routeCalc: "{message} (tính tuyến trong {ms}ms)",
+    findingAddress: "Đang tìm địa chỉ…", addressFound: "{name} ({via}) — hãy chọn “Tải khu vực này”.", addressFail: "Tìm kiếm thất bại: {message} — bạn có thể tự di chuyển bản đồ.", locating: "Đang xác định vị trí…", located: "Đã chuyển đến vị trí của bạn. Hãy chọn “Tải khu vực này”.", locationFail: "Không thể lấy vị trí. Hãy cho phép quyền vị trí.", locationUnsupported: "Trình duyệt này không hỗ trợ vị trí.",
+    dataLoading: "{label} (máy chủ {current}/{total})", tooLarge: "Khu vực quá rộng (khoảng {area}km²). Hãy phóng to một khu phố.", roadLoading: "Đang tải đường", poiLoading: "Đang tải đèn và địa điểm", buildingLoading: "Đang tải tòa nhà", loaded: "Đã tải xong. Nhấp bản đồ để chọn điểm đi và điểm đến.", loadFailed: "Không thể tải: {message} — hãy phóng to hoặc thử lại sau ít phút.", noWalkable: "Không tìm thấy đường có thể đi bộ", csvEmpty: "CSV trống.", csvNoCoords: "Không tìm thấy cột vĩ độ và kinh độ.", csvAdded: "Đã thêm {count} {kind} từ CSV.", shelterKind: "điểm trú ẩn", lampKind: "đèn đường",
+    reportEmpty: "Hãy mô tả vấn đề.", reportSelectFirst: "Trước tiên hãy chọn một đường ở chế độ “Báo nguy hiểm”.", analyzing: "Đang phân tích…", reportDone: "Phân tích và lưu báo cáo", reportsCleared: "Đã xóa báo cáo đã lưu trên thiết bị này.", clearConfirm: "Xóa tất cả báo cáo đã lưu trên thiết bị này?"
+  }
+};
+
+Object.assign(I18N.ko, {
+  buildingFallback: "건물 데이터는 서버가 바빠 받지 못했습니다. 상점·정류장 밀도로 대신 계산했습니다. 정확도를 높이려면 잠시 뒤 다시 불러와 보세요.",
+  lowLampData: "가로등 데이터는 {lamps}개뿐입니다. 건물 {buildings}동과 시설 {places}곳으로 주변 시선·밤에 사람 지표를 보완했습니다.",
+  lampMode: "지도를 클릭하면 그 자리에 가로등이 추가됩니다.", reportMode: "위험하다고 느낀 길을 클릭해 선택하세요.", minutesExtra: "{minutes}분", metersExtra: "{meters}m", fallbackAction: "현장 확인 필요",
+  routeStart: "출발", routeEnd: "도착"
+});
+Object.assign(I18N.en, {
+  buildingFallback: "Building data could not be loaded because the server is busy. Shop and bus-stop density is used instead; try again later for better accuracy.",
+  lowLampData: "Only {lamps} mapped street lamps were found. Nearby eyes and activity use {buildings} buildings and {places} places as supporting data.",
+  lampMode: "Click the map to add a street lamp at that point.", reportMode: "Click the road that feels unsafe.", minutesExtra: "{minutes} min", metersExtra: "{meters}m", fallbackAction: "On-site inspection needed",
+  routeStart: "Start", routeEnd: "Destination"
+});
+Object.assign(I18N.ja, {
+  buildingFallback: "サーバーが混雑しているため建物データを取得できませんでした。店舗・バス停の密度で代替しています。しばらくしてから再度お試しください。",
+  lowLampData: "登録された街灯は{lamps}件です。建物{buildings}棟と施設{places}か所を補助データとして使います。",
+  lampMode: "地図をクリックすると、その場所に街灯を追加します。", reportMode: "危険だと感じる道をクリックしてください。", minutesExtra: "{minutes}分", metersExtra: "{meters}m", fallbackAction: "現地確認が必要",
+  routeStart: "出発", routeEnd: "到着"
+});
+Object.assign(I18N.zh, {
+  buildingFallback: "服务器繁忙，无法加载建筑数据。已改用商店和公交站密度；稍后重试可提高准确度。",
+  lowLampData: "仅找到 {lamps} 个已标注的路灯。使用 {buildings} 栋建筑和 {places} 个设施作为辅助数据。",
+  lampMode: "点击地图即可在该位置添加路灯。", reportMode: "点击您认为不安全的道路。", minutesExtra: "{minutes} 分钟", metersExtra: "{meters}m", fallbackAction: "需要现场确认",
+  routeStart: "出发", routeEnd: "到达"
+});
+Object.assign(I18N.vi, {
+  buildingFallback: "Không thể tải dữ liệu tòa nhà vì máy chủ đang bận. Mật độ cửa hàng và điểm dừng xe buýt được dùng thay thế; hãy thử lại sau để chính xác hơn.",
+  lowLampData: "Chỉ tìm thấy {lamps} đèn đường được gắn dữ liệu. Dùng {buildings} tòa nhà và {places} địa điểm làm dữ liệu bổ trợ.",
+  lampMode: "Nhấp vào bản đồ để thêm đèn đường tại vị trí đó.", reportMode: "Nhấp vào đoạn đường bạn cảm thấy không an toàn.", minutesExtra: "{minutes} phút", metersExtra: "{meters}m", fallbackAction: "Cần kiểm tra tại chỗ",
+  routeStart: "Điểm đi", routeEnd: "Điểm đến"
+});
+
+I18N.es = {
+  ...I18N.en,
+  title: "Balgil — Rutas nocturnas más seguras", tagline: "No solo la ruta más rápida, sino la más segura", subtitle: "Estima la seguridad al caminar de noche con cinco principios CPTED.", languageLabel: "Idioma",
+  searchPlaceholder: "Barrio — por ejemplo: Dunsan-dong, Daejeon", search: "Buscar", myLocation: "Mi ubicación", safeRoute: "Ruta más segura", fastestRoute: "Ruta más rápida", streetLamp: "Farolas", shelterStore: "Refugios · tiendas", report: "Aviso",
+  initialStatus: "Mueve el mapa a un barrio y selecciona «Cargar esta zona».", loadTitle: "1. Cargar datos", loadArea: "Cargar esta zona", loadNote: "Carga carreteras, edificios, farolas, tiendas y CCTV del área visible desde OpenStreetMap.", csvNote: "Añade datos públicos CSV, como farolas o refugios. Las columnas de latitud y longitud se detectan automáticamente.",
+  routeTitle: "2. Buscar una ruta", routeMode: "Origen · destino", addLamp: "Añadir farola", riskReport: "Avisar de un riesgo", peopleTitle: "3. ¿Quién camina?", presetDefault: "Predeterminado", presetAlone: "Solo por la noche", presetChild: "Con un niño", presetQuiet: "Evitar calles solitarias", presetNote: "Cada situación prioriza cosas distintas. Elige una para actualizar la ruta.", openExpert: "Abrir ajustes avanzados", closeExpert: "Cerrar ajustes avanzados",
+  detour: "Desvío aceptable", light: "Iluminación", watch: "Vigilancia natural", activity: "Actividad", structure: "Trazado de la calle", shelter: "Refugio", expertNote: "Estos controles corresponden a cinco principios CPTED y sirven para explorar.",
+  reportTitle: "4. Aviso con IA", reportNote: "En el modo de aviso, selecciona una calle y describe el problema de forma natural.", reportPlaceholder: "Ejemplo: La farola lleva días parpadeando. Por la noche apenas se ve delante.", reportLocalOnly: "Solo se guarda en este dispositivo; no se envía automáticamente a una institución.", analyzeReport: "Analizar y guardar aviso", savedReportsNote: "Los avisos guardados se pueden cargar de nuevo en este dispositivo.", clearReports: "Borrar avisos guardados",
+  metrics: ["Farolas", "Vigilancia cercana", "Actividad nocturna", "Trazado", "Refugio"], metricWords: [["Muy pocas", "Dispersas", "Media", "Buena luz"], ["Muy poca", "Poca", "Media", "Mucha"], ["Escasa", "Alguna", "Bastante", "Activa"], ["Callejón estrecho", "Calle normal", "Calle amplia", "Vía principal"], ["Lejos", "Algo lejos", "Cerca", "Al lado"]],
+  grades: ["Buena para caminar de noche", "En general está bien", "Ten más cuidado", "Mejor evitarla a solas"], whyRoute: "¿Por qué esta ruta?", wholeGood: "En general, esta ruta está bien.", wholeNeutral: "No hay nada especialmente bueno ni malo.", goodReasons: ["las farolas iluminan bien", "hay muchas ventanas cerca", "hay gente por la noche", "la calle es ancha", "hay un refugio cerca"], badReasons: ["casi no hay farolas", "hay poca gente cerca", "pasa poca gente por la noche", "la calle es estrecha", "los refugios están lejos"],
+  type: { 조명: "Iluminación", 시야: "Visibilidad", 노면: "Pavimento", 치안: "Seguridad", 기타: "Otro" }, severity: "Gravedad", action: "Acción sugerida", engine: "Motor", aiEngine: "Análisis con IA", ruleEngine: "Análisis por reglas (sin IA)",
+  mapNotLoaded: "Primero selecciona «Cargar esta zona».", choosePoints: "Haz clic en el mapa para elegir el origen y el destino.", lampAdded: "Farola añadida. Total: {count}.", selectRoad: "Calle seleccionada. Describe el problema en la sección 4.", noRoadNearby: "No hay una calle cerca.", noWalkableNearby: "No hay una calle transitable cerca.", disconnected: "Estos dos puntos no están conectados por calles.", fastestIsSafest: "La ruta más rápida también resulta ser la más segura.", detourCompare: "Camina {time} más para evitar {count} tramos más oscuros.", routeMeta: "{meters}m · {minutes} min a pie · más segura que el {percent}% de las calles de aquí", routeCalc: "{message} (ruta calculada en {ms}ms)",
+  findingAddress: "Buscando la dirección…", addressFound: "{name} ({via}) — selecciona «Cargar esta zona».", addressFail: "Error de búsqueda: {message} — puedes mover el mapa manualmente.", locating: "Buscando tu ubicación…", located: "Ubicación encontrada. Selecciona «Cargar esta zona».", locationFail: "No se pudo obtener tu ubicación. Permite el acceso a la ubicación.", locationUnsupported: "Este navegador no admite la ubicación.",
+  dataLoading: "{label} (servidor {current}/{total})", tooLarge: "Esta zona es demasiado grande (unos {area}km²). Acércate a un solo barrio.", roadLoading: "Cargando calles", poiLoading: "Cargando farolas y lugares", buildingLoading: "Cargando edificios", loaded: "Listo. Haz clic en el mapa para elegir origen y destino.", loadFailed: "No se pudo cargar: {message} — acércate o inténtalo de nuevo pronto.", noWalkable: "No se encontraron calles transitables", csvEmpty: "El CSV está vacío.", csvNoCoords: "No se encontraron columnas de latitud y longitud.", csvAdded: "Se añadieron {count} entradas de {kind} desde el CSV.", shelterKind: "refugio", lampKind: "farola",
+  reportEmpty: "Describe el problema.", reportSelectFirst: "Primero selecciona una calle en el modo «Avisar de un riesgo».", analyzing: "Analizando…", reportDone: "Analizar y guardar aviso", reportsCleared: "Se borraron los avisos guardados en este dispositivo.", clearConfirm: "¿Borrar todos los avisos guardados en este dispositivo?", buildingFallback: "No se pudieron cargar los edificios porque el servidor está ocupado. Se usa la densidad de tiendas y paradas como alternativa; inténtalo más tarde para mayor precisión.", lowLampData: "Solo se encontraron {lamps} farolas registradas. Se usan {buildings} edificios y {places} lugares como datos de apoyo.", lampMode: "Haz clic en el mapa para añadir una farola en ese punto.", reportMode: "Haz clic en la calle que te parezca insegura.", minutesExtra: "{minutes} min", metersExtra: "{meters}m", fallbackAction: "Se necesita una inspección en el lugar", routeStart: "Origen", routeEnd: "Destino"
+};
+
+I18N.fr = {
+  ...I18N.en,
+  title: "Balgil — Itinéraires de nuit plus sûrs", tagline: "Pas seulement le plus rapide, mais le plus sûr", subtitle: "Estime la sécurité des déplacements nocturnes selon cinq principes CPTED.", languageLabel: "Langue",
+  searchPlaceholder: "Quartier — par exemple : Dunsan-dong, Daejeon", search: "Rechercher", myLocation: "Ma position", safeRoute: "Itinéraire plus sûr", fastestRoute: "Itinéraire le plus rapide", streetLamp: "Lampadaires", shelterStore: "Refuges · commerces", report: "Signalement",
+  initialStatus: "Déplacez la carte vers un quartier, puis choisissez « Charger cette zone ».", loadTitle: "1. Charger les données", loadArea: "Charger cette zone", loadNote: "Charge les routes, bâtiments, lampadaires, commerces et caméras de la zone affichée depuis OpenStreetMap.", csvNote: "Ajoutez des données CSV publiques, comme des lampadaires ou des refuges. Les colonnes latitude et longitude sont détectées automatiquement.",
+  routeTitle: "2. Trouver un itinéraire", routeMode: "Départ · arrivée", addLamp: "Ajouter un lampadaire", riskReport: "Signaler un risque", peopleTitle: "3. Qui marche ?", presetDefault: "Par défaut", presetAlone: "Seul tard le soir", presetChild: "Avec un enfant", presetQuiet: "Éviter les rues désertes", presetNote: "Chaque situation a des priorités différentes. Choisissez-en une pour mettre à jour l’itinéraire.", openExpert: "Ouvrir les réglages avancés", closeExpert: "Fermer les réglages avancés",
+  detour: "Détour acceptable", light: "Éclairage", watch: "Surveillance naturelle", activity: "Activité", structure: "Configuration de la rue", shelter: "Refuge", expertNote: "Ces réglages correspondent aux cinq principes CPTED et servent à explorer les résultats.",
+  reportTitle: "4. Signalement par IA", reportNote: "En mode signalement, choisissez une route et décrivez naturellement le problème.", reportPlaceholder: "Exemple : Le lampadaire clignote depuis plusieurs jours. La nuit, on ne voit presque rien devant.", reportLocalOnly: "Enregistré uniquement sur cet appareil ; rien n’est envoyé automatiquement à une institution.", analyzeReport: "Analyser et enregistrer", savedReportsNote: "Les signalements enregistrés peuvent être rechargés sur cet appareil.", clearReports: "Effacer les signalements",
+  metrics: ["Lampadaires", "Regards alentour", "Activité nocturne", "Configuration", "Refuge"], metricWords: [["Très peu", "Épars", "Moyen", "Bien éclairé"], ["Très peu", "Peu", "Moyen", "Beaucoup"], ["Faible", "Un peu", "Assez active", "Active"], ["Ruelle étroite", "Rue normale", "Rue large", "Grande avenue"], ["Loin", "Un peu loin", "Proche", "Juste à côté"]],
+  grades: ["Agréable à pied la nuit", "Globalement correct", "Soyez plus prudent", "À éviter seul"], whyRoute: "Pourquoi cet itinéraire ?", wholeGood: "Cet itinéraire est globalement satisfaisant.", wholeNeutral: "Rien ne ressort comme particulièrement bon ou mauvais.", goodReasons: ["les lampadaires éclairent bien", "il y a beaucoup de fenêtres autour", "des personnes passent la nuit", "la rue est large", "un refuge est proche"], badReasons: ["il n’y a presque pas de lampadaires", "il y a peu de monde autour", "peu de personnes passent la nuit", "la rue est étroite", "les refuges sont loin"],
+  type: { 조명: "Éclairage", 시야: "Visibilité", 노면: "Chaussée", 치안: "Sécurité", 기타: "Autre" }, severity: "Gravité", action: "Action proposée", engine: "Moteur", aiEngine: "Analyse IA", ruleEngine: "Analyse par règles (IA indisponible)",
+  mapNotLoaded: "Choisissez d’abord « Charger cette zone ».", choosePoints: "Cliquez sur la carte pour choisir un départ et une arrivée.", lampAdded: "Lampadaire ajouté. Total : {count}.", selectRoad: "Route sélectionnée. Décrivez le problème dans la section 4 ci-dessous.", noRoadNearby: "Aucune route à proximité.", noWalkableNearby: "Aucune route praticable à proximité.", disconnected: "Ces deux points ne sont pas reliés par des routes.", fastestIsSafest: "L’itinéraire le plus rapide est aussi le plus sûr.", detourCompare: "Marchez {time} de plus pour éviter {count} sections plus sombres.", routeMeta: "{meters}m · {minutes} min à pied · plus sûr que {percent}% des rues ici", routeCalc: "{message} (itinéraire calculé en {ms}ms)",
+  findingAddress: "Recherche de l’adresse…", addressFound: "{name} ({via}) — choisissez « Charger cette zone ».", addressFail: "Échec de la recherche : {message} — vous pouvez déplacer la carte manuellement.", locating: "Recherche de votre position…", located: "Position trouvée. Choisissez « Charger cette zone ».", locationFail: "Impossible d’obtenir votre position. Autorisez l’accès à la position.", locationUnsupported: "Ce navigateur ne prend pas en charge la géolocalisation.",
+  dataLoading: "{label} (serveur {current}/{total})", tooLarge: "Cette zone est trop grande (environ {area}km²). Zoomez sur un seul quartier.", roadLoading: "Chargement des routes", poiLoading: "Chargement des lampadaires et lieux", buildingLoading: "Chargement des bâtiments", loaded: "Chargé. Cliquez sur la carte pour choisir départ et arrivée.", loadFailed: "Impossible de charger : {message} — zoomez ou réessayez dans un instant.", noWalkable: "Aucune route praticable trouvée", csvEmpty: "Le CSV est vide.", csvNoCoords: "Colonnes latitude et longitude introuvables.", csvAdded: "{count} entrées de {kind} ont été ajoutées depuis le CSV.", shelterKind: "refuge", lampKind: "lampadaire",
+  reportEmpty: "Décrivez le problème.", reportSelectFirst: "Choisissez d’abord une route dans le mode « Signaler un risque ».", analyzing: "Analyse en cours…", reportDone: "Analyser et enregistrer", reportsCleared: "Les signalements enregistrés sur cet appareil ont été effacés.", clearConfirm: "Effacer tous les signalements enregistrés sur cet appareil ?", buildingFallback: "Les bâtiments n’ont pas pu être chargés car le serveur est occupé. La densité des commerces et arrêts est utilisée à la place ; réessayez plus tard pour une meilleure précision.", lowLampData: "Seuls {lamps} lampadaires cartographiés ont été trouvés. {buildings} bâtiments et {places} lieux servent de données complémentaires.", lampMode: "Cliquez sur la carte pour ajouter un lampadaire à cet endroit.", reportMode: "Cliquez sur la route qui vous semble dangereuse.", minutesExtra: "{minutes} min", metersExtra: "{meters}m", fallbackAction: "Une vérification sur place est nécessaire", routeStart: "Départ", routeEnd: "Arrivée"
+};
+
+let language = "ko";
+const LANG_LOCALE = { ko: "ko", en: "en", ja: "ja", zh: "zh-CN", vi: "vi", es: "es", fr: "fr" };
+const SUPPORTED_LANGUAGES = new Set(Object.keys(I18N));
+function normalizeLanguage(value) {
+  return String(value || "").trim().toLowerCase().split("-")[0];
+}
+function getInitialLanguage() {
+  const requested = normalizeLanguage(new URLSearchParams(location.search).get("lang"));
+  if (SUPPORTED_LANGUAGES.has(requested)) return requested;
+  try {
+    const saved = normalizeLanguage(localStorage.getItem("balgil-language"));
+    if (SUPPORTED_LANGUAGES.has(saved)) return saved;
+  } catch {}
+  const browserLanguages = navigator.languages?.length ? navigator.languages : [navigator.language];
+  return browserLanguages.map(normalizeLanguage).find(code => SUPPORTED_LANGUAGES.has(code)) || "ko";
+}
+function updateLanguageUrl() {
+  try {
+    const url = new URL(location.href);
+    url.searchParams.set("lang", language);
+    history.replaceState(null, "", url);
+  } catch {}
+}
+function t(key, values = {}) {
+  const read = (source, path) => path.split(".").reduce((value, part) => value?.[part], source);
+  let text = read(I18N[language], key) ?? read(I18N.ko, key) ?? key;
+  return String(text).replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "");
+}
+function applyLanguage() {
+  document.documentElement.lang = language;
+  document.title = t("title");
+  $("language").value = language;
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  $("language").setAttribute("aria-label", t("languageLabel"));
+  $("ai-count").textContent = $("ai-in").value.length + " / 500";
+  if (!D) say(t("initialStatus"));
+  else render();
+}
+
 const MIRRORS = [
   "https://overpass.kumi.systems/api/interpreter",
   "https://overpass-api.de/api/interpreter",
@@ -214,6 +428,21 @@ const $ = id => document.getElementById(id);
 let map, R = {}, D = null, t0 = 0;
 let mode = "route", selEdge = -1, start = -1, goal = -1;
 
+function setActiveChoice(container, active) {
+  container.querySelectorAll("button").forEach(button => {
+    const selected = button === active;
+    button.dataset.on = selected ? "1" : "0";
+    button.setAttribute("aria-pressed", String(selected));
+  });
+}
+function syncChoiceAccessibility(container) {
+  container.querySelectorAll("button").forEach(button => {
+    button.setAttribute("aria-pressed", String(button.dataset.on === "1"));
+  });
+}
+syncChoiceAccessibility($("modes"));
+syncChoiceAccessibility($("presets"));
+
 /* ── 지도 ── */
 map = L.map("map", { preferCanvas: true }).setView([36.3504, 127.3845], 16);
 L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
@@ -226,6 +455,7 @@ R.route = L.layerGroup().addTo(map);
 R.marks = L.layerGroup().addTo(map);
 
 const say = (m, k) => { const e = $("status"); e.textContent = m; e.className = "status" + (k ? " " + k : ""); };
+const sayT = (key, values, kind) => say(t(key, values), kind);
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
 /* ── 거리: 하버사인 (제곱근과 실수) ── */
@@ -274,12 +504,12 @@ class Grid {
 /* ── Overpass: 서버가 죽어 있으면 다음 서버로 ──────────────
    504(시간 초과) 429(너무 잦음) 503(과부하)는 서버 사정이므로
    같은 요청을 다른 서버에 그대로 보냅니다.                    */
-async function ovp(q, label) {
+async function ovp(q, labelKey) {
   let last = "";
   for (let i = 0; i < MIRRORS.length; i++) {
     const at = (mirror + i) % MIRRORS.length;
     const host = MIRRORS[at].split("/")[2].split(".")[1] || MIRRORS[at].split("/")[2];
-    if (label) say(label + " (서버 " + (i + 1) + "/" + MIRRORS.length + " · " + host + ")", "busy");
+    if (labelKey) sayT("dataLoading", { label: t(labelKey), current: i + 1, total: MIRRORS.length, host }, "busy");
     try {
       const ctl = new AbortController();
       const timer = setTimeout(() => ctl.abort(), 45000);
@@ -305,7 +535,7 @@ async function loadArea() {
   const bb = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].map(v => v.toFixed(5)).join(",");
   const km2 = dist(b.getSouth(), b.getWest(), b.getNorth(), b.getWest()) / 1000 *
               dist(b.getSouth(), b.getWest(), b.getSouth(), b.getEast()) / 1000;
-  if (km2 > 6) { say("범위가 너무 넓습니다 (약 " + km2.toFixed(1) + "km²). 지도를 확대해 동네 하나 정도로 좁혀 주세요.", "err"); return; }
+  if (km2 > 6) { sayT("tooLarge", { area: km2.toFixed(1) }, "err"); return; }
 
   $("load").disabled = true;
   t0 = performance.now();
@@ -324,8 +554,8 @@ async function loadArea() {
       ");out body qt;";
 
     const [rd, po] = await Promise.all([
-      ovp(qRoad, "도로망을 불러오는 중"),
-      ovp(qPoi, "가로등·상점을 불러오는 중")
+      ovp(qRoad, "roadLoading"),
+      ovp(qPoi, "poiLoading")
     ]);
     const tNet = performance.now();
 
@@ -333,7 +563,7 @@ async function loadArea() {
     let bd = { elements: [] }, bldOk = true;
     try {
       const qBld = "[out:json][timeout:50];way[\"building\"](" + bb + ");out center qt;";
-      bd = await ovp(qBld, "건물을 불러오는 중");
+      bd = await ovp(qBld, "buildingLoading");
     } catch (e) { bldOk = false; }
 
     build(rd, { elements: [...po.elements, ...bd.elements] }, bldOk);
@@ -345,24 +575,55 @@ async function loadArea() {
     $("perf").textContent =
       "내려받기 " + Math.round(tNet - t0) + "ms · 지표 계산 " + Math.round(tCalc - tNet) +
       "ms · 도로 " + D.m.toLocaleString() + "구간 · 건물 " + D.bld.pts.length.toLocaleString() + "동";
-    say("불러왔습니다. 지도에서 출발지와 도착지를 클릭하세요.");
+    sayT("loaded");
 
     const al = $("alert");
     if (!bldOk) {
       al.className = "alert on";
-      al.innerHTML = "건물 데이터는 서버가 바빠 받지 못했습니다. <b>상점·정류장 밀도로 대신</b> 계산했습니다. " +
-        "정확도를 높이려면 잠시 뒤 다시 불러와 보세요.";
+      al.textContent = t("buildingFallback");
     } else if (D.lamps.pts.length < 15) {
       al.className = "alert on";
-      al.innerHTML = "가로등 데이터는 <b>" + D.lamps.pts.length + "개</b>뿐이지만 괜찮습니다. " +
-        "건물 " + D.bld.pts.length.toLocaleString() + "동, 시설 " + D.act.pts.length +
-        "곳으로 <b>주변 시선·밤에 사람</b> 지표를 대신 계산했습니다.";
+      al.textContent = t("lowLampData", { lamps: D.lamps.pts.length, buildings: D.bld.pts.length.toLocaleString(), places: D.act.pts.length });
     } else al.className = "alert";
   } catch (e) {
-    say("불러오기 실패: " + e.message + " — 공개 서버가 붐비는 중입니다. " +
-        "지도를 더 확대해 범위를 좁히거나, 1~2분 뒤 다시 눌러 보세요.", "err");
+    sayT("loadFailed", { message: e.message }, "err");
   }
   $("load").disabled = false;
+}
+
+/* ── 이 기기에만 저장하는 신고 ── */
+const REPORT_STORE = "balgil-local-reports-v1";
+function savedReports() {
+  try {
+    const reports = JSON.parse(localStorage.getItem(REPORT_STORE) || "[]");
+    return Array.isArray(reports) ? reports.filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lon) && Number.isFinite(r.level)) : [];
+  } catch { return []; }
+}
+function saveReport(report) {
+  try {
+    const reports = savedReports(); reports.push(report);
+    localStorage.setItem(REPORT_STORE, JSON.stringify(reports.slice(-200)));
+  } catch {}
+}
+function restoreSavedReports() {
+  for (const report of savedReports()) {
+    const edge = snapEdge(report.lat, report.lon);
+    if (edge < 0) continue;
+    const midLat = (D.lat[D.ea[edge]] + D.lat[D.eb[edge]]) / 2;
+    const midLon = (D.lon[D.ea[edge]] + D.lon[D.eb[edge]]) / 2;
+    if (dist(report.lat, report.lon, midLat, midLon) > 180) continue;
+    const level = Math.min(3, Math.max(1, Number(report.level) || 1));
+    D.reports[edge].push({ level, type: report.type || "기타" });
+    D.pen[edge] += 0.10 * level;
+  }
+}
+function clearSavedReports() {
+  try { localStorage.removeItem(REPORT_STORE); } catch {}
+  if (D) {
+    D.pen.fill(0); D.reports.forEach(report => report.splice(0));
+    recombine(); render();
+  }
+  sayT("reportsCleared");
 }
 
 /* ── 그래프 + 지표 만들기 ── */
@@ -389,7 +650,7 @@ function build(rd, po, bldOk) {
     }
   }
   const n = lat.length, m = ea.length;
-  if (!m) throw new Error("걸을 수 있는 길을 찾지 못했습니다");
+  if (!m) throw new Error(t("noWalkable"));
 
   /* 2. 인접 리스트를 CSR로 (배열 3개면 끝) */
   const deg = new Int32Array(n);
@@ -433,6 +694,7 @@ function build(rd, po, bldOk) {
   D.noBld = bldOk === false || bld.length === 0;
 
   indicators();
+  restoreSavedReports();
   recombine();
 }
 
@@ -587,24 +849,16 @@ function render() {
       { radius: 5, stroke: false, fillColor: "#FF4D4D", fillOpacity: .95, interactive: false }));
   }
   if (start >= 0) R.marks.addLayer(L.circleMarker([D.lat[start], D.lon[start]],
-    { radius: 8, color: "#0D141F", weight: 2.5, fillColor: "#6FA8FF", fillOpacity: 1 }).bindTooltip("출발"));
+    { radius: 8, color: "#0D141F", weight: 2.5, fillColor: "#6FA8FF", fillOpacity: 1 }).bindTooltip(t("routeStart")));
   if (goal >= 0) R.marks.addLayer(L.circleMarker([D.lat[goal], D.lon[goal]],
-    { radius: 8, color: "#0D141F", weight: 2.5, fillColor: "#3DDC97", fillOpacity: 1 }).bindTooltip("도착"));
+    { radius: 8, color: "#0D141F", weight: 2.5, fillColor: "#3DDC97", fillOpacity: 1 }).bindTooltip(t("routeEnd")));
   routes();
 }
 
 /* ── 사람이 읽는 말로 바꾸기 ─────────────────────────────
    점수(0~1)는 계산용이고, 화면에는 말로 보여줍니다.          */
-const NAMES  = ["가로등", "주변 시선", "밤에 사람", "길 모양", "대피할 곳"];
 const COLORS = ["#FFC24B", "#7FB3E8", "#3DDC97", "#AFA9EC", "#F0997B"];
-const WORDS = [
-  ["거의 없음", "드문드문", "보통", "밝은 편"],
-  ["거의 없음", "적음", "보통", "많음"],
-  ["드묾", "조금 있음", "꽤 있음", "많음"],
-  ["좁은 골목", "보통 길", "넓은 길", "큰길"],
-  ["멀어요", "조금 멀어요", "가까워요", "바로 옆"]
-];
-const word = (k, v) => WORDS[k][v < .2 ? 0 : v < .45 ? 1 : v < .7 ? 2 : 3];
+const word = (k, v) => I18N[language].metricWords[k][v < .2 ? 0 : v < .45 ? 1 : v < .7 ? 2 : 3];
 
 /* 등급: 이 동네 도로들과 견줘서 몇 등인지 (백분위) */
 let sorted = null;
@@ -620,22 +874,20 @@ function percentile(v) {
   while (lo < hi) { const mid = (lo + hi) >> 1; if (sorted[mid] < v) lo = mid + 1; else hi = mid; }
   return Math.round(lo / sorted.length * 100);
 }
-const GRADES = [
-  { min: 75, t: "밤에 걷기 좋아요",   bg: "#12301F", fg: "#7CE0AE" },
-  { min: 50, t: "무난해요",           bg: "#132436", fg: "#8FC4F5" },
-  { min: 28, t: "조금 조심하세요",    bg: "#2E2413", fg: "#F2C97A" },
-  { min: 0,  t: "혼자는 피하고 싶은 길", bg: "#33191A", fg: "#F79B9B" }
-];
+const grade = pct => {
+  const colors = [[75, "#12301F", "#7CE0AE"], [50, "#132436", "#8FC4F5"], [28, "#2E2413", "#F2C97A"], [0, "#33191A", "#F79B9B"]];
+  const i = colors.findIndex(x => pct >= x[0]);
+  return { min: colors[i][0], t: I18N[language].grades[i], bg: colors[i][1], fg: colors[i][2] };
+};
 
 /* 왜 그런지 한 줄로: 가장 좋은 것과 가장 아쉬운 것을 짚어줍니다 */
 function reason(f) {
   let hi = 0, lo = 0;
   for (let k = 1; k < F; k++) { if (f[k] > f[hi]) hi = k; if (f[k] < f[lo]) lo = k; }
   if (hi === lo || f[hi] - f[lo] < 0.08)
-    return f[hi] > .55 ? "전반적으로 괜찮은 길이에요." : "특별히 나쁘진 않지만 눈에 띄게 좋지도 않아요.";
-  const good = ["가로등이 밝고", "주변에 창문이 많고", "밤에도 사람이 다니고", "길이 넓고", "대피할 곳이 가깝고"][hi];
-  const bad  = ["가로등이 거의 없어요", "주변에 인기척이 적어요", "밤엔 사람이 드물어요", "길이 좁아요", "대피할 곳이 멀어요"][lo];
-  return f[hi] < .25 ? bad.replace("어요", "어요.") : good + ", " + bad;
+    return f[hi] > .55 ? t("wholeGood") : t("wholeNeutral");
+  const good = I18N[language].goodReasons[hi], bad = I18N[language].badReasons[lo];
+  return f[hi] < .25 ? bad : good + ", " + bad;
 }
 
 function routes() {
@@ -643,41 +895,40 @@ function routes() {
   const V = $("verdict"), B = $("bars");
   if (!D || start < 0 || goal < 0) { V.className = "verdict"; B.className = "bars"; return; }
 
-  const t = performance.now();
+  const startedAt = performance.now();
   const pF = findPath(start, goal, 0);
   const pS = findPath(start, goal, +$("alpha").value);
-  const ms = performance.now() - t;
-  if (!pF || !pS) { V.className = "verdict"; B.className = "bars"; say("두 지점이 길로 이어져 있지 않습니다.", "err"); return; }
+  const ms = performance.now() - startedAt;
+  if (!pF || !pS) { V.className = "verdict"; B.className = "bars"; sayT("disconnected", {}, "err"); return; }
 
   R.route.addLayer(L.polyline(ll(pF), { color: "#FF7A6B", weight: 3, opacity: .85, dashArray: "6 6", interactive: false }));
   R.route.addLayer(L.polyline(ll(pS), { color: "#3DDC97", weight: 5, opacity: .95, interactive: false }));
 
   const iS = info(pS), iF = info(pF);
   const pct = percentile(iS.score / 100);
-  const g = GRADES.find(x => pct >= x.min);
+  const g = grade(pct);
 
   const dm = iS.meters - iF.meters, dt = iS.minutes - iF.minutes;
-  const compare = dm > 20
-    ? (dt > 0 ? dt + "분" : Math.round(dm) + "m") + " 더 걸어서 어두운 구간을 " + Math.max(1, iF.dark - iS.dark) + "곳 피했어요."
-    : "가장 빠른 길이 마침 가장 안전한 길이에요.";
+  const time = dt > 0 ? t("minutesExtra", { minutes: dt }) : t("metersExtra", { meters: Math.round(dm) });
+  const compare = dm > 20 ? t("detourCompare", { time, count: Math.max(1, iF.dark - iS.dark) }) : t("fastestIsSafest");
 
   V.className = "verdict on";
   V.style.background = g.bg; V.style.color = g.fg;
   V.innerHTML = '<div class="gr">' + g.t + "</div>" +
     '<div class="ln">' + reason(iS.f) + "</div>" +
     '<div class="ln" style="margin-top:6px">' + compare + "</div>" +
-    '<div class="mt">' + iS.meters + "m · 걸어서 " + iS.minutes + "분 · 이 동네 길 중 상위 " + (100 - pct) + "%</div>";
+    '<div class="mt">' + t("routeMeta", { meters: iS.meters, minutes: iS.minutes, percent: 100 - pct }) + "</div>";
 
-  let html = '<div class="note" style="margin:0 0 6px"><b>이 길은 왜 그런가요?</b></div>';
+  let html = '<div class="note" style="margin:0 0 6px"><b>' + t("whyRoute") + "</b></div>";
   for (let k = 0; k < F; k++) {
     const v = iS.f[k], p = Math.round(v * 100);
-    html += '<div class="bar"><span class="nm">' + NAMES[k] + '</span>' +
+    html += '<div class="bar"><span class="nm">' + I18N[language].metrics[k] + '</span>' +
             '<span class="tr"><span class="fl" style="width:' + Math.max(2, p) + '%;background:' + COLORS[k] + '"></span></span>' +
             '<span class="pc">' + word(k, v) + "</span></div>";
   }
   B.className = "bars on"; B.innerHTML = html;
 
-  say(compare + " (경로 계산 " + ms.toFixed(1) + "ms)");
+  sayT("routeCalc", { message: compare, ms: ms.toFixed(1) });
 }
 
 /* ── 가장 가까운 것 찾기: 격자 덕분에 즉시 ── */
@@ -703,19 +954,19 @@ function snapEdge(la, lo) {
 /* ── 지도 클릭 ── */
 map.on("click", ev => {
   const { lat, lng } = ev.latlng;
-  if (!D) { say("먼저 “이 지역 불러오기”를 눌러 주세요.", "err"); return; }
+  if (!D) { sayT("mapNotLoaded", {}, "err"); return; }
   if (mode === "lamp") {
     D.lamps.pts.push({ lat, lon: lng, src: "user" });
     D.lamps = new Grid(D.lamps.pts, 0.001);
     indicators(); recombine(); render();
-    say("가로등 추가. 현재 " + D.lamps.pts.length + "개.");
+    sayT("lampAdded", { count: D.lamps.pts.length });
   } else if (mode === "report") {
     selEdge = snapEdge(lat, lng);
     render();
-    say(selEdge >= 0 ? "구간을 선택했습니다. 아래 4번에 상황을 적어 보세요." : "가까운 길이 없습니다.", selEdge < 0 ? "err" : "");
+    selEdge >= 0 ? sayT("selectRoad") : sayT("noRoadNearby", {}, "err");
   } else {
     const id = snapNode(lat, lng);
-    if (id < 0) { say("근처에 걸을 수 있는 길이 없습니다.", "err"); return; }
+    if (id < 0) { sayT("noWalkableNearby", {}, "err"); return; }
     if (start < 0 || (start >= 0 && goal >= 0)) { start = id; goal = -1; } else goal = id;
     render();
   }
@@ -724,11 +975,11 @@ map.on("click", ev => {
 /* ── 검색 / 내 위치 ── */
 async function geocode(q) {
   try {
-    const r = await fetch("/api/geocode?q=" + encodeURIComponent(q));
+    const r = await fetch("/api/geocode?q=" + encodeURIComponent(q) + "&lang=" + encodeURIComponent(LANG_LOCALE[language]));
     const d = await r.json();
     if (r.ok && d.결과?.length) return { hit: d.결과[0], via: "백엔드" };
   } catch {}
-  const r2 = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=ko&countrycodes=kr&q=" + encodeURIComponent(q));
+  const r2 = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=" + LANG_LOCALE[language] + "&countrycodes=kr&q=" + encodeURIComponent(q));
   if (!r2.ok) throw new Error("검색 서버 응답 " + r2.status);
   const d2 = await r2.json();
   if (!d2.length) throw new Error("그런 곳을 찾지 못했습니다");
@@ -736,61 +987,81 @@ async function geocode(q) {
 }
 $("go-search").addEventListener("click", async () => {
   const q = $("q").value.trim(); if (!q) return;
-  say("주소를 찾는 중…", "busy");
+  sayT("findingAddress", {}, "busy");
   try {
     const { hit, via } = await geocode(q);
     map.setView([hit.lat, hit.lon], 16);
-    say(hit.이름.split(",").slice(0, 3).join(", ") + " (" + via + ") — “이 지역 불러오기”를 눌러 주세요.");
+    sayT("addressFound", { name: hit.이름.split(",").slice(0, 3).join(", "), via });
   } catch (e) {
-    say("검색 실패: " + e.message +
-      (location.protocol === "file:" ? " — 로컬 파일이라 외부 요청이 막힙니다. 배포 주소로 접속하세요." : " — 지도를 직접 옮겨도 됩니다."), "err");
+    sayT("addressFail", { message: e.message }, "err");
   }
 });
 $("q").addEventListener("keydown", e => { if (e.key === "Enter") $("go-search").click(); });
 $("go-here").addEventListener("click", () => {
-  if (!navigator.geolocation) { say("위치 기능을 지원하지 않습니다.", "err"); return; }
-  say("현재 위치 확인 중…", "busy");
+  if (!navigator.geolocation) { sayT("locationUnsupported", {}, "err"); return; }
+  sayT("locating", {}, "busy");
   navigator.geolocation.getCurrentPosition(
-    p => { map.setView([p.coords.latitude, p.coords.longitude], 16); say("이동했습니다. “이 지역 불러오기”를 눌러 주세요."); },
-    () => say("위치를 가져오지 못했습니다. 권한을 허용해 주세요.", "err"));
+    p => { map.setView([p.coords.latitude, p.coords.longitude], 16); sayT("located"); },
+    () => sayT("locationFail", {}, "err"));
 });
 
 /* ── 공공데이터 CSV ── */
-$("csv").addEventListener("change", ev => {
-  const f = ev.target.files[0]; if (!f || !D) { if (!D) say("먼저 지역을 불러와 주세요.", "err"); return; }
-  const rd = new FileReader();
-  rd.onload = () => {
-    const li = rd.result.split(/\r?\n/).filter(x => x.trim());
-    if (li.length < 2) { say("CSV가 비어 있습니다.", "err"); return; }
-    const head = li[0].split(",").map(s => s.replace(/["\s]/g, "").toLowerCase());
-    const find = ks => head.findIndex(h => ks.some(k => h.includes(k)));
-    const iLat = find(["위도", "lat"]), iLon = find(["경도", "lon", "lng"]);
-    if (iLat < 0 || iLon < 0) { say("위도·경도 열을 찾지 못했습니다.", "err"); return; }
-    const isRef = /지킴이|편의점|안심/.test(f.name);
-    let n = 0;
-    for (let i = 1; i < li.length; i++) {
-      const c = li[i].split(",");
-      const la = parseFloat(c[iLat]), lo = parseFloat(c[iLon]);
-      if (!isFinite(la) || !isFinite(lo) || la < 33 || la > 39 || lo < 124 || lo > 132) continue;
-      (isRef ? D.ref.pts : D.lamps.pts).push({ lat: la, lon: lo, src: "csv" }); n++;
+function parseCsv(text) {
+  const rows = [], row = []; let cell = "", quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i], next = text[i + 1];
+    if (ch === '"' && quoted && next === '"') { cell += '"'; i++; continue; }
+    if (ch === '"') { quoted = !quoted; continue; }
+    if (ch === "," && !quoted) { row.push(cell.trim()); cell = ""; continue; }
+    if ((ch === "\n" || ch === "\r") && !quoted) {
+      if (ch === "\r" && next === "\n") i++;
+      row.push(cell.trim()); if (row.some(Boolean)) rows.push(row.splice(0)); cell = ""; continue;
     }
-    D.lamps = new Grid(D.lamps.pts, 0.001);
-    D.ref = new Grid(D.ref.pts, 0.003);
-    indicators(); recombine(); render();
-    say("CSV에서 " + n + "곳을 " + (isRef ? "대피소" : "가로등") + "로 추가했습니다.");
-    $("alert").className = "alert";
-  };
-  rd.readAsText(f, "utf-8");
+    cell += ch;
+  }
+  row.push(cell.trim()); if (row.some(Boolean)) rows.push(row);
+  return rows;
+}
+function importCsv(buffer, fileName) {
+  let rows, iLat = -1, iLon = -1;
+  for (const encoding of ["utf-8", "euc-kr"]) {
+    try {
+      rows = parseCsv(new TextDecoder(encoding).decode(buffer));
+      if (rows.length < 2) continue;
+      const head = rows[0].map(s => s.replace(/["\s\uFEFF]/g, "").toLowerCase());
+      const find = keys => head.findIndex(h => keys.some(key => h.includes(key)));
+      iLat = find(["위도", "lat", "latitude"]); iLon = find(["경도", "lon", "lng", "longitude"]);
+      if (iLat >= 0 && iLon >= 0) break;
+    } catch {}
+  }
+  if (!rows || rows.length < 2) { sayT("csvEmpty", {}, "err"); return; }
+  if (iLat < 0 || iLon < 0) { sayT("csvNoCoords", {}, "err"); return; }
+  const isRef = /지킴이|편의점|안심|shelter|refuge|safe/i.test(fileName);
+  let count = 0;
+  for (const row of rows.slice(1)) {
+    const lat = Number.parseFloat(row[iLat]), lon = Number.parseFloat(row[iLon]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < 33 || lat > 39 || lon < 124 || lon > 132) continue;
+    (isRef ? D.ref.pts : D.lamps.pts).push({ lat, lon, src: "csv" }); count++;
+  }
+  D.lamps = new Grid(D.lamps.pts, 0.001);
+  D.ref = new Grid(D.ref.pts, 0.003);
+  indicators(); recombine(); render();
+  sayT("csvAdded", { count, kind: t(isRef ? "shelterKind" : "lampKind") });
+  $("alert").className = "alert";
+}
+$("csv").addEventListener("change", ev => {
+  const f = ev.target.files[0]; if (!f || !D) { if (!D) sayT("mapNotLoaded", {}, "err"); return; }
+  const rd = new FileReader();
+  rd.onload = () => importCsv(rd.result, f.name);
+  rd.readAsArrayBuffer(f);
 });
 
 /* ── 조작 ── */
 $("modes").addEventListener("click", ev => {
   const b = ev.target.closest("button"); if (!b) return;
   mode = b.dataset.mode; selEdge = -1;
-  [...document.querySelectorAll("#modes button")].forEach(x => x.dataset.on = x === b ? "1" : "0");
-  say(mode === "route" ? "지도를 클릭해 출발지와 도착지를 정하세요."
-    : mode === "lamp" ? "지도를 클릭하면 그 자리에 가로등이 추가됩니다."
-    : "위험하다고 느낀 길을 클릭해 선택하세요.");
+  setActiveChoice($("modes"), b);
+  sayT(mode === "route" ? "choosePoints" : mode === "lamp" ? "lampMode" : "reportMode");
   render();
 });
 $("alpha").addEventListener("input", () => { $("alpha-v").textContent = (+$("alpha").value).toFixed(1); routes(); });
@@ -808,7 +1079,7 @@ const PRESETS = [
 ];
 $("presets").addEventListener("click", ev => {
   const b = ev.target.closest("button"); if (!b) return;
-  [...document.querySelectorAll("#presets button")].forEach(x => x.dataset.on = x === b ? "1" : "0");
+  setActiveChoice($("presets"), b);
   const P = PRESETS[+b.dataset.p];
   P.w.forEach((v, k) => { $("w" + k).value = v; $("w" + k + "-v").textContent = v.toFixed(2).slice(1); });
   $("alpha").value = P.a; $("alpha-v").textContent = P.a.toFixed(1);
@@ -817,9 +1088,19 @@ $("presets").addEventListener("click", ev => {
 $("adv-toggle").addEventListener("click", () => {
   const a = $("adv"), on = a.className !== "adv on";
   a.className = on ? "adv on" : "adv";
-  $("adv-toggle").textContent = on ? "전문가 설정 닫기" : "전문가 설정 열기";
+  $("adv-toggle").textContent = t(on ? "closeExpert" : "openExpert");
 });
 $("load").addEventListener("click", loadArea);
+$("ai-in").addEventListener("input", () => { $("ai-count").textContent = $("ai-in").value.length + " / 500"; });
+$("clear-reports").addEventListener("click", () => { if (confirm(t("clearConfirm"))) clearSavedReports(); });
+
+language = getInitialLanguage();
+$("language").addEventListener("change", ev => {
+  language = ev.target.value;
+  try { localStorage.setItem("balgil-language", language); } catch {}
+  updateLanguageUrl();
+  applyLanguage();
+});
 
 /* ── AI 신고 ── */
 async function analyze(text) {
@@ -831,33 +1112,53 @@ async function analyze(text) {
   return d;
 }
 function fallback(text) {
-  const t = text.toLowerCase(), hit = (...w) => w.some(x => t.includes(x));
+  const input = text.toLocaleLowerCase(), hit = (...w) => w.some(x => input.includes(x));
   let 유형 = "기타", 심각도 = 1;
-  if (hit("가로등", "어둡", "불이", "깜빡", "조명")) { 유형 = "조명"; 심각도 = 2; }
-  else if (hit("안 보", "가려", "나무", "시야", "골목")) { 유형 = "시야"; 심각도 = 2; }
-  else if (hit("턱", "패인", "공사", "미끄")) { 유형 = "노면"; 심각도 = 2; }
-  else if (hit("무섭", "따라", "취객", "수상")) { 유형 = "치안"; 심각도 = 3; }
-  if (hit("며칠", "계속", "전혀", "아예")) 심각도 = Math.min(3, 심각도 + 1);
-  return { 유형, 심각도, 요약: text.slice(0, 15), 조치: "현장 확인 필요" };
+  if (hit("가로등", "어둡", "불이", "깜빡", "조명", "streetlight", "lamp", "dark", "light", "街灯", "暗", "照明", "路灯", "黑", "đèn", "tối", "oscuro", "farola", "lámpara", "sombre", "lampadaire")) { 유형 = "조명"; 심각도 = 2; }
+  else if (hit("안 보", "가려", "나무", "시야", "골목", "can't see", "visibility", "blocked", "見え", "視界", "见", "视线", "không thấy", "tầm nhìn", "no se ve", "visibilidad", "ne voit", "visibilité")) { 유형 = "시야"; 심각도 = 2; }
+  else if (hit("턱", "패인", "공사", "미끄", "pothole", "slip", "construction", "段差", "工事", "路面", "坑", "施工", "ổ gà", "trơn", "công trình", "bache", "resbal", "travaux", "trou", "glissant")) { 유형 = "노면"; 심각도 = 2; }
+  else if (hit("무섭", "따라", "취객", "수상", "scared", "follow", "suspicious", "怖", "つけ", "怪しい", "害怕", "跟踪", "可疑", "sợ", "theo dõi", "đáng ngờ", "miedo", "sigue", "sospech", "peur", "suit", "suspect")) { 유형 = "치안"; 심각도 = 3; }
+  if (hit("며칠", "계속", "전혀", "아예", "days", "always", "completely", "何日", "ずっと", "几天", "一直", "nhiều ngày", "liên tục", "días", "siempre", "jours", "toujours")) 심각도 = Math.min(3, 심각도 + 1);
+  return { 유형, 심각도, 요약: text.slice(0, 100), 조치: t("fallbackAction") };
+}
+function reportType(type) { return I18N[language].type[type] || I18N[language].type.기타; }
+function renderReportResult(out, result, engine) {
+  const level = Math.min(3, Math.max(1, Number(result.심각도) || 1));
+  const title = document.createElement("div"); title.className = "t";
+  title.textContent = reportType(result.유형) + " · " + t("severity") + " " + level;
+  const summary = document.createElement("div"); summary.textContent = String(result.요약 || "").slice(0, 100);
+  const action = document.createElement("div"); action.style.cssText = "color:var(--ink-3);margin-top:4px";
+  action.textContent = t("action") + " — " + String(result.조치 || t("fallbackAction")).slice(0, 120);
+  const source = document.createElement("div"); source.style.cssText = "color:var(--ink-3);margin-top:5px;font-size:11.5px";
+  source.textContent = t("engine") + " — " + engine;
+  out.replaceChildren(title, summary, action, source);
+  out.style.display = "block";
 }
 $("ai-go").addEventListener("click", async () => {
   const btn = $("ai-go"), out = $("ai-out"), text = $("ai-in").value.trim();
-  if (!text) { alert("신고 내용을 적어 주세요."); return; }
-  if (selEdge < 0) { alert('먼저 "위험 신고" 모드에서 지도의 길을 클릭하세요.'); return; }
-  btn.disabled = true; btn.textContent = "분석 중…";
+  if (!text) { alert(t("reportEmpty")); return; }
+  if (selEdge < 0) { alert(t("reportSelectFirst")); return; }
+  btn.disabled = true; btn.textContent = t("analyzing");
   let r, engine;
-  try { r = await analyze(text); engine = "AI 분석" + (r.모델 ? " · " + r.모델 : ""); }
-  catch { r = fallback(text); engine = "규칙 분석 (AI 서버 없음)"; }
-
-  D.reports[selEdge].push({ level: r.심각도, type: r.유형 });
-  D.pen[selEdge] += 0.10 * r.심각도;
-  recombine(); render();
-
-  out.style.display = "block";
-  out.innerHTML = '<div class="t">' + r.유형 + " · 심각도 " + r.심각도 + "단계</div><div>" + r.요약 + "</div>" +
-    '<div style="color:var(--ink-3);margin-top:4px">제안 조치 — ' + (r.조치 || "현장 확인") + "</div>" +
-    '<div style="color:var(--ink-3);margin-top:5px;font-size:11.5px">엔진 — ' + engine + "</div>";
-  $("ai-in").value = "";
-  btn.disabled = false; btn.textContent = "AI로 분석하고 등록";
+  try {
+    try { r = await analyze(text); engine = t("aiEngine") + (r.모델 ? " · " + r.모델 : ""); }
+    catch { r = fallback(text); engine = t("ruleEngine"); }
+    const level = Math.min(3, Math.max(1, Number(r.심각도) || 1));
+    const type = I18N.ko.type[r.유형] ? r.유형 : "기타";
+    D.reports[selEdge].push({ level, type });
+    D.pen[selEdge] += 0.10 * level;
+    const lat = (D.lat[D.ea[selEdge]] + D.lat[D.eb[selEdge]]) / 2;
+    const lon = (D.lon[D.ea[selEdge]] + D.lon[D.eb[selEdge]]) / 2;
+    saveReport({ lat, lon, level, type, createdAt: Date.now() });
+    recombine(); render();
+    renderReportResult(out, { ...r, 유형: type, 심각도: level }, engine);
+    $("ai-in").value = ""; $("ai-count").textContent = "0 / 500";
+  } finally {
+    btn.disabled = false; btn.textContent = t("analyzeReport");
+  }
 });
+
+applyLanguage();
 </script>
+</body>
+</html>

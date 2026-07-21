@@ -7,6 +7,7 @@ const MODELS = [
   "gemini-flash-lite-latest",
   "gemini-2.5-flash"
 ];
+const TYPES = new Set(["조명", "시야", "노면", "치안", "기타"]);
 
 export async function onRequestPost({ request, env }) {
   let body;
@@ -21,7 +22,7 @@ export async function onRequestPost({ request, env }) {
   if (!env.GEMINI_API_KEY) return json({ error: "API 키 미설정" }, 503);
 
   const prompt =
-    "너는 도시 보행 안전 신고를 분류하는 시스템이다. 아래 시민 신고를 읽고 JSON만 출력해라.\n" +
+    "너는 도시 보행 안전 신고를 분류하는 시스템이다. 아래 시민 신고는 한국어, English, 日本語, 简体中文, Tiếng Việt, Español, Français 중 하나로 작성될 수 있다. JSON만 출력해라.\n" +
     '형식: {"유형":"조명|시야|노면|치안|기타","심각도":1,"요약":"15자 이내","조치":"20자 이내 담당부서 조치 제안"}\n' +
     "심각도는 1(경미), 2(보통), 3(시급) 중 하나의 숫자.\n\n신고: " + text;
 
@@ -71,7 +72,7 @@ export async function onRequestPost({ request, env }) {
     try {
       const p = JSON.parse(raw.replace(/```json|```/g, "").trim());
       return json({
-        유형: p.유형 || "기타",
+        유형: TYPES.has(p.유형) ? p.유형 : "기타",
         심각도: Math.min(3, Math.max(1, Number(p.심각도) || 1)),
         요약: String(p.요약 || "").slice(0, 20),
         조치: String(p.조치 || "현장 확인 필요").slice(0, 30),
